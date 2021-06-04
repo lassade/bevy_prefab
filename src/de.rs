@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use bevy::ecs::{component::Component, world::EntityMut};
+use bevy::ecs::{bundle::Bundle, component::Component, world::EntityMut};
 use parking_lot::{RwLock, RwLockReadGuard};
 use serde::de::DeserializeSeed;
 use serde::Deserializer;
@@ -64,9 +64,16 @@ impl ComponentDescriptorRegistry {
     //     self.registry_aliased();
     // }
 
-    pub fn registry_aliased<T>(&self, alias: String) -> Result<()>
+    pub fn register_aliased<T>(&self, alias: String) -> Result<()>
     where
         T: Component + for<'de> Deserialize<'de> + 'static,
+    {
+        self.register_group_aliased::<(T,)>(alias)
+    }
+
+    pub fn register_group_aliased<T>(&self, alias: String) -> Result<()>
+    where
+        T: Bundle + for<'de> Deserialize<'de> + 'static,
     {
         let mut lock = self.lock.write();
         let entry = lock.named.entry(alias);
@@ -76,7 +83,7 @@ impl ComponentDescriptorRegistry {
                 vacant.insert(ComponentDescriptor {
                     de: &|deserializer, entity| {
                         let value: T = Deserialize::deserialize(deserializer)?;
-                        entity.insert(value);
+                        entity.insert_bundle(value);
                         Ok(())
                     },
                 });
@@ -216,7 +223,7 @@ mod tests {
     fn read() {
         let registry = ComponentDescriptorRegistry::default();
         registry
-            .registry_aliased::<Name>("Name".to_string())
+            .register_aliased::<Name>("Name".to_string())
             .unwrap();
 
         let mut world = World::default();
