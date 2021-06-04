@@ -1,38 +1,18 @@
-use std::{any::type_name, collections::hash_map::Entry, sync::Arc};
+use std::{any::type_name, collections::hash_map::Entry};
 
 use anyhow::Result;
-use bevy::{
-    ecs::{bundle::Bundle, component::Component, world::EntityMut},
-    utils::HashMap,
-};
-use parking_lot::RwLock;
+use bevy::ecs::{bundle::Bundle, component::Component, world::EntityMut};
 use serde::Deserialize;
-use thiserror::Error;
+
+use super::{Registry, RegistryError};
 
 #[derive(Clone)]
 pub struct ComponentDescriptor {
     pub(crate) de:
         &'static dyn Fn(&mut dyn erased_serde::Deserializer, &mut EntityMut) -> Result<()>,
-    //fields: &'static [&'static str],
 }
 
-#[derive(Default)]
-pub(crate) struct ComponentDescriptorRegistryInner {
-    pub(crate) named: HashMap<String, ComponentDescriptor>,
-}
-
-#[derive(Clone)]
-pub struct ComponentDescriptorRegistry {
-    pub(crate) lock: Arc<RwLock<ComponentDescriptorRegistryInner>>,
-}
-
-impl Default for ComponentDescriptorRegistry {
-    fn default() -> Self {
-        Self {
-            lock: Arc::new(RwLock::new(Default::default())),
-        }
-    }
-}
+pub type ComponentDescriptorRegistry = Registry<ComponentDescriptor>;
 
 impl ComponentDescriptorRegistry {
     pub fn registry<T>(&self) -> Result<()>
@@ -56,11 +36,9 @@ impl ComponentDescriptorRegistry {
         let mut lock = self.lock.write();
         let entry = lock.named.entry(alias);
         match entry {
-            Entry::Occupied(occupied) => {
-                Err(ComponentDescriptorRegistryError::AliasAlreadyRegistered(
-                    occupied.key().to_string(),
-                ))?
-            }
+            Entry::Occupied(occupied) => Err(RegistryError::AliasAlreadyRegistered(
+                occupied.key().to_string(),
+            ))?,
             Entry::Vacant(vacant) => {
                 vacant.insert(ComponentDescriptor {
                     de: &|deserializer, entity| {
@@ -73,11 +51,6 @@ impl ComponentDescriptorRegistry {
             }
         }
     }
-}
-#[derive(Error, Debug)]
-enum ComponentDescriptorRegistryError {
-    #[error("alias `{0}` already registered")]
-    AliasAlreadyRegistered(String),
 }
 
 /// Make [`std::any::type_name`] more human readable by trimming the type path

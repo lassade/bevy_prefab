@@ -81,7 +81,7 @@ pub trait PrefabData: Debug {
 }
 
 #[derive(Debug)]
-pub struct BoxedPrefabData(Box<dyn PrefabData + Send + Sync>);
+pub struct BoxedPrefabData(pub(crate) Box<dyn PrefabData + Send + Sync>);
 
 #[derive(Debug)]
 pub struct PrefabVariantId {

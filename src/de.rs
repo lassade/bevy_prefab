@@ -8,12 +8,12 @@ use serde::{
     Deserializer,
 };
 
-use crate::registry::{ComponentDescriptor, ComponentDescriptorRegistryInner};
+use crate::registry::{ComponentDescriptor, RegistryInner};
 
 ///////////////////////////////////////////////////////////////////////////////
 
 struct ComponentIdentifier<'a> {
-    registry: &'a RwLockReadGuard<'a, ComponentDescriptorRegistryInner>,
+    registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for ComponentIdentifier<'a> {
@@ -72,7 +72,7 @@ impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentData<'a, 'w> {
 
 struct ComponentIdentifiedData<'a, 'w> {
     entity_builder: &'a mut EntityMut<'w>,
-    registry: &'a RwLockReadGuard<'a, ComponentDescriptorRegistryInner>,
+    registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
 }
 
 impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentIdentifiedData<'a, 'w> {
