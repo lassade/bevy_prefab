@@ -1,107 +1,16 @@
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    fmt,
-    sync::Arc,
-};
+use std::fmt;
 
 use anyhow::Result;
-use bevy::ecs::{bundle::Bundle, component::Component, world::EntityMut};
-use parking_lot::{RwLock, RwLockReadGuard};
-use serde::de::DeserializeSeed;
-use serde::Deserializer;
+use bevy::ecs::world::EntityMut;
+use parking_lot::RwLockReadGuard;
 use serde::{
-    de::{self, EnumAccess, VariantAccess, Visitor},
-    Deserialize,
+    de::{self, DeserializeSeed, EnumAccess, VariantAccess, Visitor},
+    Deserializer,
 };
 
-// [
-//     Entity {
-//         id: <stable index u32>,
-//         components: [
-//             Name(...),
-//             Parent(...),
-//             Transform { ... },
-//             ...
-//         ]
-//     },
-//     Prefab {
-//         id: <stable index u32>,
-//         source: {
-//             uuid: <uuid>,
-//             path: <string to prefab asset>,
-//         },
-//         transform: {
-//             position: ,
-//             rotation: ,
-//             scale: <Optional>,
-//         },
-//         parent: <some id that isn't self.id>,
-//         config: <additional prefab config, used by the prefab construct fn>,
-//     },
-// ]
+use crate::registry::{ComponentDescriptor, ComponentDescriptorRegistryInner};
 
-#[derive(Default)]
-struct ComponentDescriptorRegistryInner {
-    named: HashMap<String, ComponentDescriptor>,
-}
-
-#[derive(Clone)]
-pub struct ComponentDescriptorRegistry {
-    lock: Arc<RwLock<ComponentDescriptorRegistryInner>>,
-}
-
-impl Default for ComponentDescriptorRegistry {
-    fn default() -> Self {
-        Self {
-            lock: Arc::new(RwLock::new(Default::default())),
-        }
-    }
-}
-
-impl ComponentDescriptorRegistry {
-    // pub fn registry<T: 'static>(&self) -> Result<()> {
-    //     // TODO: nice name ...
-    //     self.registry_aliased();
-    // }
-
-    pub fn register_aliased<T>(&self, alias: String) -> Result<()>
-    where
-        T: Component + for<'de> Deserialize<'de> + 'static,
-    {
-        self.register_group_aliased::<(T,)>(alias)
-    }
-
-    pub fn register_group_aliased<T>(&self, alias: String) -> Result<()>
-    where
-        T: Bundle + for<'de> Deserialize<'de> + 'static,
-    {
-        let mut lock = self.lock.write();
-        let entry = lock.named.entry(alias);
-        match entry {
-            Entry::Occupied(_) => todo!(),
-            Entry::Vacant(vacant) => {
-                vacant.insert(ComponentDescriptor {
-                    de: &|deserializer, entity| {
-                        let value: T = Deserialize::deserialize(deserializer)?;
-                        entity.insert_bundle(value);
-                        Ok(())
-                    },
-                });
-                Ok(())
-            }
-        }
-    }
-}
-
-// thread_local! {
-//     static COMPONENT_DESCRIPTOR_REGISTRY: Cell<Option<ComponentDescriptorRegistry>> = Cell::new(None);
-// }
-
-#[derive(Clone)]
-struct ComponentDescriptor {
-    de: &'static dyn Fn(&mut dyn erased_serde::Deserializer, &mut EntityMut) -> Result<()>,
-    //fields: &'static [&'static str],
-}
+///////////////////////////////////////////////////////////////////////////////
 
 struct ComponentIdentifier<'a> {
     registry: &'a RwLockReadGuard<'a, ComponentDescriptorRegistryInner>,
@@ -203,18 +112,13 @@ impl<'a, 'w, 'de> Visitor<'de> for ComponentIdentifiedData<'a, 'w> {
     }
 }
 
-// Prefab {
-//     variant: {
-//         uuid: <uuid>,
-//         name: <prefab variant name>,
-//     }
-//     scene: <scene format>
-// }
-
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bevy::ecs::world::World;
+    use serde::Deserialize;
+
+    use super::*;
+    use crate::registry::ComponentDescriptorRegistry;
 
     #[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
     struct Name(String);
