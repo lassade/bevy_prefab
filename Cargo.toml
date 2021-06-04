@@ -1,0 +1,17 @@
+[package]
+name = "bevy_prefab"
+version = "0.1.0"
+authors = ["Felipe Jorge <felipe.jorge.pereira@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+#bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main" }
+anyhow = "1.0.40"
+serde = { version = "1.0.126", features = ["derive"] }
+erased-serde = "0.3.15"
+parking_lot = "0.11.1"
+
+[dev-dependencies]
+ron = "0.6.4"
