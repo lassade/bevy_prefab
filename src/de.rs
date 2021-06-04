@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::Result;
+use bevy::ecs::{component::Component, world::EntityMut};
 use parking_lot::RwLock;
 use serde::de::DeserializeSeed;
 use serde::Deserializer;
@@ -66,7 +67,7 @@ impl ComponentDescriptorRegistry {
 
     pub fn registry_aliased<T>(&self, alias: String) -> Result<()>
     where
-        T: Debug + for<'de> Deserialize<'de> + 'static,
+        T: Component + for<'de> Deserialize<'de> + 'static,
     {
         let mut lock = self.lock.write();
         let entry = lock.named.entry(alias);
@@ -74,9 +75,9 @@ impl ComponentDescriptorRegistry {
             Entry::Occupied(_) => todo!(),
             Entry::Vacant(vacant) => {
                 vacant.insert(ComponentDescriptor {
-                    de: &|deserializer| {
+                    de: &|deserializer, entity| {
                         let value: T = Deserialize::deserialize(deserializer)?;
-                        println!("{:?}", value);
+                        entity.insert(value);
                         Ok(())
                     },
                 });
@@ -92,7 +93,7 @@ thread_local! {
 
 #[derive(Clone)]
 struct ComponentDescriptor {
-    de: &'static dyn Fn(&mut dyn erased_serde::Deserializer) -> Result<()>,
+    de: &'static dyn Fn(&mut dyn erased_serde::Deserializer, &mut EntityMut) -> Result<()>,
     //fields: &'static [&'static str],
 }
 
@@ -131,14 +132,24 @@ impl<'de> Deserialize<'de> for ComponentDescriptor {
     }
 }
 
-struct Component;
-
-struct ComponentVisitor {
-    seed: (),
+struct ComponentVisitor<'a, 'w> {
+    entity: &'a mut EntityMut<'w>,
 }
 
-impl<'de> Visitor<'de> for ComponentVisitor {
-    type Value = Component;
+impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentVisitor<'a, 'w> {
+    type Value = ();
+
+    #[inline]
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_enum("Component", &[], self)
+    }
+}
+
+impl<'a, 'w, 'de> Visitor<'de> for ComponentVisitor<'a, 'w> {
+    type Value = ();
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a registered `Component`")
@@ -149,34 +160,29 @@ impl<'de> Visitor<'de> for ComponentVisitor {
         A: EnumAccess<'de>,
     {
         let (descriptor, variant) = data.variant::<ComponentDescriptor>()?;
+        let ComponentVisitor { entity } = self;
 
-        struct Seed(ComponentDescriptor);
-
-        impl<'de> DeserializeSeed<'de> for Seed {
-            type Value = Component;
-
-            fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
-                (self.0.de)(&mut deserializer).map_err(de::Error::custom)?;
-                Ok(Component)
-            }
-        }
-
-        // TODO: Not ideal
-        variant.newtype_variant_seed(Seed(descriptor))
+        // Should only be used if the Component is a enum
+        variant.newtype_variant_seed(ComponentData { descriptor, entity })
     }
 }
 
-impl<'de> Deserialize<'de> for Component {
-    #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+struct ComponentData<'a, 'w> {
+    descriptor: ComponentDescriptor,
+    entity: &'a mut EntityMut<'w>,
+}
+
+impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentData<'a, 'w> {
+    type Value = ();
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_enum("Component", &[], ComponentVisitor { seed: () })
+        let ComponentData { descriptor, entity } = self;
+        let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
+        (descriptor.de)(&mut deserializer, entity).map_err(de::Error::custom)?;
+        Ok(())
     }
 }
 
@@ -191,6 +197,7 @@ impl<'de> Deserialize<'de> for Component {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::ecs::world::World;
 
     #[derive(Debug, Deserialize)]
     struct Name(String);
@@ -202,11 +209,19 @@ mod tests {
             .registry_aliased::<Name>("Name".to_string())
             .unwrap();
 
+        let mut world = World::default();
+        let mut entity = world.spawn();
         let input = r#"Name(("Root"))"#;
 
         COMPONENT_DESCRIPTOR_REGISTRY.with(|cell| {
             cell.replace(Some(registry.clone()));
-            let _: Component = ron::de::from_str(input).unwrap();
+
+            let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+            let visitor = ComponentVisitor {
+                entity: &mut entity,
+            };
+            visitor.deserialize(&mut deserializer).unwrap();
+
             cell.replace(None);
         })
     }
