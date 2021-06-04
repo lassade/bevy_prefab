@@ -15,7 +15,7 @@ pub struct ComponentDescriptor {
 pub type ComponentDescriptorRegistry = Registry<ComponentDescriptor>;
 
 impl ComponentDescriptorRegistry {
-    pub fn registry<T>(&self) -> Result<()>
+    pub fn register<T>(&self) -> Result<()>
     where
         T: Component + for<'de> Deserialize<'de> + 'static,
     {

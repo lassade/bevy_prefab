@@ -15,7 +15,7 @@ pub struct PrefabDescriptor {
 pub type PrefabDescriptorRegistry = Registry<PrefabDescriptor>;
 
 impl PrefabDescriptorRegistry {
-    pub fn registry<T>(&self) -> Result<()>
+    pub fn register<T>(&self) -> Result<()>
     where
         T: PrefabData + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {

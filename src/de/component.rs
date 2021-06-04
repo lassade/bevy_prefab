@@ -70,7 +70,7 @@ impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentData<'a, 'w> {
     }
 }
 
-struct ComponentIdentifiedData<'a, 'w> {
+pub(crate) struct ComponentIdentifiedData<'a, 'w> {
     entity_builder: &'a mut EntityMut<'w>,
     registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
 }
