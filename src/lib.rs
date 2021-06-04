@@ -2,11 +2,10 @@
 //!
 //! ```ron,ignore
 //! Prefab {
-//!     // None specify the simplest prefab with no construct function
-//!     variant: Some({
+//!     variant: {
 //!         uuid: <uuid>,
 //!         name: <prefab variant name>,
-//!     }),
+//!     },
 //!     scene: [
 //!         Entity {
 //!             id: 67234,
@@ -15,8 +14,9 @@
 //!                 Transform({ translation: (0, 0, -10) }),
 //!             ]
 //!         },
-//!         Prefab {
+//!         Lamp {
 //!             id: 95649,
+//!             // May fail if the source asset isn't of the same as above
 //!             source: {
 //!                 uuid: "76500818-9b39-4655-9d32-8f1ac0ecbb41",
 //!                 path: "prefabs/lamp.prefab",
@@ -36,8 +36,9 @@
 //! }
 //! ```
 
-use std::any::Any;
+use std::fmt::Debug;
 
+use anyhow::Result;
 use bevy::{
     asset::Handle,
     ecs::{entity::Entity, world::World},
@@ -75,8 +76,12 @@ pub struct PrefabInstanceTransform {
     scale: Option<Vec3>,
 }
 
+pub trait PrefabData: Debug {
+    fn construct(&self, world: &mut World) -> Result<()>;
+}
+
 #[derive(Debug)]
-pub struct BoxedPrefabData(Box<dyn Any + Send + Sync>);
+pub struct BoxedPrefabData(Box<dyn PrefabData + Send + Sync>);
 
 #[derive(Debug)]
 pub struct PrefabVariantId {
@@ -91,10 +96,6 @@ pub struct Prefab {
     world: World,
     nested_prefabs: Vec<PrefabInstance>,
 }
-
-// pub trait PrefabData: TypeUuid {
-//     fn construct(&self, world: &mut World) -> Result<()>;
-// }
 
 // #[cfg(test)]
 // mod tests {
