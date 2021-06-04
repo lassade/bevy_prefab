@@ -1,13 +1,12 @@
 use std::{
-    cell::Cell,
     collections::{hash_map::Entry, HashMap},
-    fmt::{self, Debug},
+    fmt,
     sync::Arc,
 };
 
 use anyhow::Result;
 use bevy::ecs::{component::Component, world::EntityMut};
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockReadGuard};
 use serde::de::DeserializeSeed;
 use serde::Deserializer;
 use serde::{
@@ -87,9 +86,9 @@ impl ComponentDescriptorRegistry {
     }
 }
 
-thread_local! {
-    static COMPONENT_DESCRIPTOR_REGISTRY: Cell<Option<ComponentDescriptorRegistry>> = Cell::new(None);
-}
+// thread_local! {
+//     static COMPONENT_DESCRIPTOR_REGISTRY: Cell<Option<ComponentDescriptorRegistry>> = Cell::new(None);
+// }
 
 #[derive(Clone)]
 struct ComponentDescriptor {
@@ -97,9 +96,23 @@ struct ComponentDescriptor {
     //fields: &'static [&'static str],
 }
 
-struct ComponentDescriptorVisitor;
+struct ComponentIdentifier<'a> {
+    registry: &'a RwLockReadGuard<'a, ComponentDescriptorRegistryInner>,
+}
 
-impl<'de> Visitor<'de> for ComponentDescriptorVisitor {
+impl<'a, 'de> DeserializeSeed<'de> for ComponentIdentifier<'a> {
+    type Value = ComponentDescriptor;
+
+    #[inline]
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_identifier(self)
+    }
+}
+
+impl<'a, 'de> Visitor<'de> for ComponentIdentifier<'a> {
     type Value = ComponentDescriptor;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -110,33 +123,43 @@ impl<'de> Visitor<'de> for ComponentDescriptorVisitor {
     where
         E: de::Error,
     {
-        COMPONENT_DESCRIPTOR_REGISTRY.with(|cell| {
-            let contents = cell.replace(None);
-            let descriptor = contents
-                .as_ref()
-                .and_then(|registry| registry.lock.read().named.get(v).cloned())
-                .ok_or_else(|| de::Error::unknown_variant(v, &[]));
-            cell.replace(contents);
-            descriptor
-        })
+        let ComponentIdentifier { registry } = self;
+        registry
+            .named
+            .get(v)
+            .cloned()
+            .ok_or_else(|| de::Error::unknown_variant(v, &[]))
     }
 }
 
-impl<'de> Deserialize<'de> for ComponentDescriptor {
-    #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+struct ComponentData<'a, 'w> {
+    descriptor: ComponentDescriptor,
+    entity_builder: &'a mut EntityMut<'w>,
+}
+
+impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentData<'a, 'w> {
+    type Value = ();
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_identifier(ComponentDescriptorVisitor)
+        let ComponentData {
+            descriptor,
+            entity_builder,
+        } = self;
+        let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
+        (descriptor.de)(&mut deserializer, entity_builder).map_err(de::Error::custom)?;
+        Ok(())
     }
 }
 
-struct ComponentVisitor<'a, 'w> {
-    entity: &'a mut EntityMut<'w>,
+struct ComponentIdentifiedData<'a, 'w> {
+    entity_builder: &'a mut EntityMut<'w>,
+    registry: &'a RwLockReadGuard<'a, ComponentDescriptorRegistryInner>,
 }
 
-impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentVisitor<'a, 'w> {
+impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentIdentifiedData<'a, 'w> {
     type Value = ();
 
     #[inline]
@@ -148,7 +171,7 @@ impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentVisitor<'a, 'w> {
     }
 }
 
-impl<'a, 'w, 'de> Visitor<'de> for ComponentVisitor<'a, 'w> {
+impl<'a, 'w, 'de> Visitor<'de> for ComponentIdentifiedData<'a, 'w> {
     type Value = ();
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -159,30 +182,17 @@ impl<'a, 'w, 'de> Visitor<'de> for ComponentVisitor<'a, 'w> {
     where
         A: EnumAccess<'de>,
     {
-        let (descriptor, variant) = data.variant::<ComponentDescriptor>()?;
-        let ComponentVisitor { entity } = self;
+        let ComponentIdentifiedData {
+            entity_builder,
+            registry,
+        } = self;
+        let (descriptor, variant) = data.variant_seed(ComponentIdentifier { registry })?;
 
         // Should only be used if the Component is a enum
-        variant.newtype_variant_seed(ComponentData { descriptor, entity })
-    }
-}
-
-struct ComponentData<'a, 'w> {
-    descriptor: ComponentDescriptor,
-    entity: &'a mut EntityMut<'w>,
-}
-
-impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentData<'a, 'w> {
-    type Value = ();
-
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let ComponentData { descriptor, entity } = self;
-        let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
-        (descriptor.de)(&mut deserializer, entity).map_err(de::Error::custom)?;
-        Ok(())
+        variant.newtype_variant_seed(ComponentData {
+            descriptor,
+            entity_builder,
+        })
     }
 }
 
@@ -199,7 +209,7 @@ mod tests {
     use super::*;
     use bevy::ecs::world::World;
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
     struct Name(String);
 
     #[test]
@@ -210,19 +220,21 @@ mod tests {
             .unwrap();
 
         let mut world = World::default();
-        let mut entity = world.spawn();
+        let mut entity_builder = world.spawn();
         let input = r#"Name(("Root"))"#;
 
-        COMPONENT_DESCRIPTOR_REGISTRY.with(|cell| {
-            cell.replace(Some(registry.clone()));
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let lock = registry.lock.read();
+        let visitor = ComponentIdentifiedData {
+            entity_builder: &mut entity_builder,
+            registry: &lock,
+        };
+        visitor.deserialize(&mut deserializer).unwrap();
 
-            let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
-            let visitor = ComponentVisitor {
-                entity: &mut entity,
-            };
-            visitor.deserialize(&mut deserializer).unwrap();
-
-            cell.replace(None);
-        })
+        let entity_id = entity_builder.id();
+        assert_eq!(
+            world.get::<Name>(entity_id).cloned(),
+            Some(Name("Root".to_string()))
+        );
     }
 }
