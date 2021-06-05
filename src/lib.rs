@@ -9,12 +9,12 @@
 //!             components: [
 //!                 Name(("Root")),
 //!                 Transform(( translation: (0, 0, -10) )),
+//!                 // Mesh(Embedded(4349)),
 //!             ]
 //!         ),
 //!         Lamp (
 //!             id: 95649,
-//!             // May fail if the source asset isn't of the same as above
-//!             source: (
+//!             source: External(
 //!                 uuid: "76500818-9b39-4655-9d32-8f1ac0ecbb41",
 //!                 path: "prefabs/lamp.prefab",
 //!             ),
@@ -29,7 +29,10 @@
 //!                 light_strength: 2,
 //!             ),
 //!         ),
-//!     ]
+//!     ],
+//!     // embedded: [
+//!     //     Mesh(4349): { ... }
+//!     // ],
 //! )
 //! ```
 
