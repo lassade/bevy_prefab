@@ -8,7 +8,10 @@ use serde::{
 };
 
 use crate::{
-    registry::{ComponentDescriptor, PrefabDescriptor, RegistryInner},
+    registry::{
+        ComponentDescriptor, ComponentDescriptorRegistry, PrefabDescriptor,
+        PrefabDescriptorRegistry, RegistryInner,
+    },
     Prefab,
 };
 
@@ -20,8 +23,20 @@ use instance::IdentifiedInstanceSeq;
 ///////////////////////////////////////////////////////////////////////////////
 
 pub struct PrefabDeserializer<'a> {
-    component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
-    prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
+    component_registry: RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
+    prefab_registry: RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
+}
+
+impl<'a> PrefabDeserializer<'a> {
+    pub fn new(
+        component_registry: &'a ComponentDescriptorRegistry,
+        prefab_registry: &'a PrefabDescriptorRegistry,
+    ) -> Self {
+        Self {
+            component_registry: component_registry.lock.read(),
+            prefab_registry: prefab_registry.lock.read(),
+        }
+    }
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for PrefabDeserializer<'a> {
@@ -76,8 +91,8 @@ impl<'a, 'de> Visitor<'de> for PrefabDeserializer<'a> {
                         entity_map: &mut entity_map,
                         world: &mut world,
                         nested_prefabs: &mut nested_prefabs,
-                        component_registry,
-                        prefab_registry,
+                        component_registry: &component_registry,
+                        prefab_registry: &prefab_registry,
                     })?;
                 }
             }
