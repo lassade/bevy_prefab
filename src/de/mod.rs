@@ -16,7 +16,7 @@ use crate::{
         PrefabDescriptorRegistry, PrefabEntitiesMapperRegistry, PrefabEntityMapperRegistryInner,
         RegistryInner,
     },
-    BoxedPrefabData, Prefab, PrefabMissingTag,
+    BoxedPrefabData, Prefab, PrefabNotInstantiatedTag,
 };
 
 mod component;
@@ -157,15 +157,18 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
 
         // Spawn blank nested prefab instances
         for nested in &mut nested_prefabs {
-            let blank = world.spawn();
+            let mut blank = world.spawn();
             let blank_entity = blank.id();
             source_to_prefab.insert(nested.id, blank_entity);
 
             // Map prefab entity id from source to prefab space (required for the next step)
             nested.id = blank_entity;
 
-            blank.insert(nested.source.clone());
-            blank.insert(PrefabMissingTag);
+            blank.insert_bundle((
+                nested.source.clone(),
+                nested.transform.clone(),
+                PrefabNotInstantiatedTag(0),
+            ));
 
             let prefab_data = &nested.data.0;
             // Insert the PrefabData (down casted) in the root Entity so it can be available during runtime
@@ -183,7 +186,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
         }
 
         // Map entities from source file to prefab space
-        entity_mapper.map_entities(&mut world, &source_to_prefab);
+        entity_mapper.map_world_components(&mut world, &source_to_prefab);
 
         let defaults = defaults.unwrap_or_else(|| (data_seed.descriptor.default)());
         let transform = transform.unwrap_or_default();

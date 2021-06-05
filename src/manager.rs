@@ -1,13 +1,10 @@
 use std::collections::hash_map::Entry;
 
 use anyhow::Result;
-use bevy::{ecs::entity::EntityMap, prelude::*, reflect::TypeRegistryArc, utils::HashMap};
+use bevy::{ecs::entity::EntityMap, prelude::*};
 use thiserror::Error;
 
-use crate::{
-    registry::{ComponentDescriptor, RegistryInner},
-    Prefab, PrefabInstance,
-};
+use crate::{Prefab, PrefabInstance, PrefabInstanceTransform, PrefabNotInstantiatedTag, registry::{ComponentDescriptor, ComponentDescriptorRegistry, PrefabEntitiesMapperRegistry, PrefabEntityMapperRegistryInner, RegistryInner}};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -21,138 +18,94 @@ pub enum PrefabSpawnError {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Default)]
-pub struct PrefabManager {
-    //instances: HashMap<Handle<Prefab>, Vec<Entity>>,
-}
+pub(crate) fn prefab_managing_system(world: &mut World) {
+    world.resource_scope(|world, prefabs: Mut<Assets<Prefab>>| {
+    world.resource_scope(|world, components: Mut<ComponentDescriptorRegistry>| {
+    world.resource_scope(|world, entity_mapper: Mut<PrefabEntitiesMapperRegistry>| {
+        let prefabs = &*prefabs;
+        let component_registry = &*components.lock.read();
+        let entity_mapper = &*entity_mapper.lock.read();
+        let mut prefabs_stack = vec![];
 
-impl PrefabManager {
-    fn spawn_internal(
-        &mut self,
-        world: &mut World,
-        parent: Option<Parent>,
-        prefabs: &Assets<Prefab>,
-        prefab_instance: &PrefabInstance,
-        component_registry: &RegistryInner<ComponentDescriptor>,
-    ) -> Result<Entity> {
-        let prefab = prefabs
-            .get(&prefab_instance.source)
-            .ok_or_else(|| PrefabSpawnError::MissingPrefab(prefab_instance.source.clone()))?;
-
-        let mut prefab_to_instance = EntityMap::default();
-
-        // Copy prefab entities over
-        for archetype in prefab.world.archetypes().iter() {
-            for prefab_entity in archetype.entities() {
-                let instance_entity = *prefab_to_instance
-                    .entry(*prefab_entity)
-                    .or_insert_with(|| world.spawn().id());
-
-                for component_id in archetype.components() {
-                    let component_info = prefab
-                            .world
-                            .components()
-                            .get_info(component_id)
-                            .expect("world must have a `ComponentInfo` for a `ComponentId` of one of their own `Archetype`s");
-
-                    let descriptor = component_registry
-                        .find_by_type(component_info.type_id().unwrap())
-                        .expect("prefab component type should be registered");
-
-                    (descriptor.copy)(&prefab.world, world, *prefab_entity, instance_entity);
-                }
-            }
+        for (entity, handle, tag) in world
+            .query::<(Entity, &Handle<Prefab>, &PrefabNotInstantiatedTag)>()
+            .iter(world)
+        {
+            prefabs_stack.push((entity, handle.clone_weak(), tag.0));
         }
 
-        // Create prefab root entity
-        let root_entity = world.spawn().id();
+        // Order buffer to first instantiate the nested prefabs
+        prefabs_stack.sort_by(|(_, _, a), (_, _, b)| a.cmp(b));
 
-        // Spawn nested prefabs
-        for nested_prefab in &prefab.nested_prefabs {
-            match prefab_to_instance.entry(nested_prefab.id) {
-                Entry::Occupied(_) => todo!(),
-                Entry::Vacant(vacant) => {
-                    vacant.insert(self.spawn_internal(
-                        world,
-                        Some(Parent(root_entity)),
-                        prefabs,
-                        nested_prefab,
-                        component_registry,
-                    )?);
+        while let Some((root_entity, source_prefab, _)) = prefabs_stack.pop() {
+            // TODO: we can not know when a nested prefab finished loading or not
+            // TODO: remove PrefabNotInstantiatedTag and add PrefabMissing
+            let prefab = match prefabs.get(&source_prefab) {
+                Some(prefab) => prefab,
+                None => continue,
+            };
+            
+            let mut prefab_to_instance = EntityMap::default();
+
+            // Copy prefab entities over
+            for archetype in prefab.world.archetypes().iter() {
+                for prefab_entity in archetype.entities() {
+                    let instance_entity = *prefab_to_instance
+                        .entry(*prefab_entity)
+                        .or_insert_with(|| world.spawn().id());
+
+                    for component_id in archetype.components() {
+                        let component_info = prefab
+                                .world
+                                .components()
+                                .get_info(component_id)
+                                .expect("world must have a `ComponentInfo` for a `ComponentId` of one of their own `Archetype`s");
+
+                        let descriptor = component_registry
+                            .find_by_type(component_info.type_id().unwrap())
+                            .expect("prefab component type should be registered");
+
+                        (descriptor.copy)(&prefab.world, world, *prefab_entity, instance_entity);
+                    }
                 }
             }
-        }
 
-        // TODO: Map scene components
-        // let type_registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
-        // let type_registry = type_registry.read();
+            for instance_entity in prefab_to_instance.values() {
+                let mut instance = world.entity_mut(instance_entity);
 
-        // Start adding data
-        let mut root = world.entity_mut(root_entity);
-        root.insert(prefab_instance.source.clone());
+                // Map entities components to instance space
+                entity_mapper.map_entity_components(&mut instance, &prefab_to_instance);
 
-        // Override prefab transform with instance's transform
-        root.insert({
+                // Parent all root prefab entities under the instance root
+                if instance.get::<Parent>().is_none() {
+                    instance.insert(Parent(root_entity));
+                }
+            }
+
+            let mut root = world.entity_mut(root_entity);
+
+            // Clear not instantiate tag
+            root.remove::<PrefabNotInstantiatedTag>();
+
+            // Override prefab transformations with instance's transform
             let mut transform = prefab.transform.clone();
-            if let Some(translation) = prefab_instance.transform.translation {
-                transform.translation = translation;
+            if let Some(transform_overrides) = root.remove::<PrefabInstanceTransform>() {
+                if let Some(translation) = transform_overrides.translation {
+                    transform.translation = translation;
+                }
+                if let Some(rotation) = transform_overrides.rotation {
+                    transform.rotation = rotation;
+                }
+                if let Some(scale) = transform_overrides.scale {
+                    transform.scale = scale;
+                }
             }
-            if let Some(rotation) = prefab_instance.transform.rotation {
-                transform.rotation = rotation;
-            }
-            if let Some(scale) = prefab_instance.transform.scale {
-                transform.scale = scale;
-            }
-            transform
-        });
+            root.insert(transform);
 
-        // Override prefab parent
-        if let Some(parent) = prefab_instance.parent {
-            // TODO: source_to_prefab
-            // TODO: prefab_to_instance
-            todo!()
-        } else if let Some(parent) = parent {
-            root.insert(parent);
+            //let prefab_data = &prefab_instance.data.0;
+
+            // TODO: Run construct prefab function
+            // prefab_data.construct(world, root_entity)?;
         }
-
-        // TODO: Put root entities under the prefab root entity
-
-        let prefab_data = &prefab_instance.data.0;
-        // Insert the PrefabData (down casted) in the root Entity so it can be available during runtime
-        prefab_data.copy_to_instance(&mut root);
-
-        // Run construct prefab function
-        prefab_data.construct(world, root_entity)?;
-
-        Ok(root_entity)
-    }
-}
-
-pub fn prefab_managing_system(world: &mut World) {
-    world.resource_scope(|world, mut scene_spawner: Mut<PrefabManager>| {
-        // let scene_asset_events = world
-        //     .get_resource::<Events<AssetEvent<DynamicScene>>>()
-        //     .unwrap();
-
-        // let mut updated_spawned_scenes = Vec::new();
-        // for event in scene_spawner
-        //     .scene_asset_event_reader
-        //     .iter(&scene_asset_events)
-        // {
-        //     if let AssetEvent::Modified { handle } = event {
-        //         if scene_spawner.spawned_dynamic_scenes.contains_key(handle) {
-        //             updated_spawned_scenes.push(handle.clone_weak());
-        //         }
-        //     }
-        // }
-
-        // scene_spawner.despawn_queued_scenes(world).unwrap();
-        // scene_spawner
-        //     .spawn_queued_scenes(world)
-        //     .unwrap_or_else(|err| panic!("{}", err));
-        // scene_spawner
-        //     .update_spawned_scenes(world, &updated_spawned_scenes)
-        //     .unwrap();
-        // scene_spawner.set_scene_instance_parent_sync(world);
-    });
+    }); }); });
 }

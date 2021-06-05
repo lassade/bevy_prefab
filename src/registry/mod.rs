@@ -2,7 +2,10 @@ use std::{any::TypeId, sync::Arc};
 
 use anyhow::Result;
 use bevy::{
-    ecs::{entity::EntityMap, world::World},
+    ecs::{
+        entity::EntityMap,
+        world::{EntityMut, World},
+    },
     utils::HashMap,
 };
 use parking_lot::RwLock;
@@ -90,15 +93,26 @@ impl<T: Send + Sync> Clone for Registry<T> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub type MapPrefabEntitiesFn = fn(&mut World, &EntityMap);
+pub type MapWorldComponentsFn = fn(&mut World, &EntityMap);
+
+pub type MapEntityComponentsFn = fn(&mut EntityMut, &EntityMap);
 
 #[derive(Default)]
-pub(crate) struct PrefabEntityMapperRegistryInner(pub Vec<MapPrefabEntitiesFn>);
+pub(crate) struct PrefabEntityMapperRegistryInner {
+    world: Vec<MapWorldComponentsFn>,
+    entity: Vec<MapEntityComponentsFn>,
+}
 
 impl PrefabEntityMapperRegistryInner {
-    pub fn map_entities(&self, world: &mut World, entity_map: &EntityMap) {
-        for map in &self.0 {
+    pub fn map_world_components(&self, world: &mut World, entity_map: &EntityMap) {
+        for map in &self.world {
             (map)(world, &entity_map);
+        }
+    }
+
+    pub fn map_entity_components(&self, entity: &mut EntityMut, entity_map: &EntityMap) {
+        for map in &self.entity {
+            (map)(entity, &entity_map);
         }
     }
 }

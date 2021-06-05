@@ -70,7 +70,7 @@ pub struct PrefabInstance {
     data: BoxedPrefabData,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct PrefabInstanceTransform {
     translation: Option<Vec3>,
@@ -102,12 +102,7 @@ pub struct Prefab {
 }
 
 #[derive(Default, Debug)]
-pub struct PrefabMissingTag;
+pub struct PrefabNotInstantiatedTag(usize);
 
-// #[cfg(test)]
-// mod tests {
-//     #[test]
-//     fn it_works() {
-//         assert_eq!(2 + 2, 4);
-//     }
-// }
+#[derive(Default, Debug)]
+pub struct PrefabMissingTag;
