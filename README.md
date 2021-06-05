@@ -10,7 +10,7 @@
 
 The example is given in `ron` file format, but the prefab system can be (de)serialized in any format implemented for `serde`
 
-```ron
+```json5
 Prefab (
     // (optional) prefab data, it will be inserted as a component of the prefab root entity
     defaults: (),
@@ -22,13 +22,15 @@ Prefab (
         Entity (
             // stable index, to map entities from file to prefab to instance spaces
             id: 67234,
-            // entity components ** double parenthesis aren't redundant **
+            // entity components
             components: [
                 Name(("Root")),
                 Transform(( translation: (0, 0, -10) )),
+                // double parenthesis aren't redundant because enums variants
+                MyEnum(VariantFoo( 0, 0, 0 )),
             ]
         ),
-        // custom prefab variant
+        // prefab variant instance
         Lamp (
             id: 95649,
             // prefab kind or implementation (what kind of lamp this instance is?)
