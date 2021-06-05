@@ -6,10 +6,12 @@ use serde::Deserialize;
 
 use super::{Registry, RegistryError};
 
+pub(crate) type ComponentDeserializerFn =
+    dyn Fn(&mut dyn erased_serde::Deserializer, &mut EntityMut) -> Result<()>;
+
 #[derive(Clone)]
 pub struct ComponentDescriptor {
-    pub(crate) de:
-        &'static dyn Fn(&mut dyn erased_serde::Deserializer, &mut EntityMut) -> Result<()>,
+    pub(crate) de: &'static ComponentDeserializerFn,
 }
 
 pub type ComponentDescriptorRegistry = Registry<ComponentDescriptor>;
@@ -26,12 +28,32 @@ impl ComponentDescriptorRegistry {
     where
         T: Component + for<'de> Deserialize<'de> + 'static,
     {
-        self.register_group_aliased::<(T,)>(alias)
+        self.register_inner::<T>(alias, &|deserializer, entity| {
+            let value: T = Deserialize::deserialize(deserializer)?;
+            entity.insert(value);
+            Ok(())
+        })
     }
 
     pub fn register_group_aliased<T>(&self, alias: String) -> Result<()>
     where
         T: Bundle + for<'de> Deserialize<'de> + 'static,
+    {
+        self.register_inner::<T>(alias, &|deserializer, entity| {
+            let value: T = Deserialize::deserialize(deserializer)?;
+            entity.insert_bundle(value);
+            Ok(())
+        })
+    }
+
+    #[inline]
+    pub fn register_inner<T>(
+        &self,
+        alias: String,
+        de: &'static ComponentDeserializerFn,
+    ) -> Result<()>
+    where
+        T: for<'de> Deserialize<'de> + 'static,
     {
         let mut lock = self.lock.write();
         let entry = lock.named.entry(alias);
@@ -40,13 +62,7 @@ impl ComponentDescriptorRegistry {
                 occupied.key().to_string(),
             ))?,
             Entry::Vacant(vacant) => {
-                vacant.insert(ComponentDescriptor {
-                    de: &|deserializer, entity| {
-                        let value: T = Deserialize::deserialize(deserializer)?;
-                        entity.insert_bundle(value);
-                        Ok(())
-                    },
-                });
+                vacant.insert(ComponentDescriptor { de });
                 Ok(())
             }
         }

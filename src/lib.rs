@@ -41,11 +41,12 @@ use std::fmt::Debug;
 use anyhow::Result;
 use bevy::{
     asset::Handle,
-    ecs::{entity::Entity, world::World},
+    ecs::{
+        entity::{Entity, EntityMap},
+        world::World,
+    },
     math::{Quat, Vec3},
     reflect::{TypeUuid, Uuid},
-    transform::components::Parent,
-    utils::HashMap,
 };
 use serde::{Deserialize, Serialize};
 
@@ -55,14 +56,11 @@ pub mod registry;
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]
-pub struct PrefabNodeId(pub(crate) u32);
-
-#[derive(Debug)]
 pub struct PrefabInstance {
-    id: PrefabNodeId,
+    id: Entity,
     source: Handle<Prefab>,
     // Overrides
-    parent: Option<Parent>,
+    parent: Option<Entity>,
     transform: PrefabInstanceTransform,
     // Data feed to construct script
     data: Option<BoxedPrefabData>,
@@ -83,16 +81,26 @@ pub trait PrefabData: Debug {
 #[derive(Debug)]
 pub struct BoxedPrefabData(pub(crate) Box<dyn PrefabData + Send + Sync>);
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PrefabVariantId {
     uuid: Uuid,
     name: String,
 }
 
+impl Default for PrefabVariantId {
+    fn default() -> Self {
+        Self {
+            uuid: Uuid::default(),
+            name: "Prefab".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, TypeUuid)]
 #[uuid = "58bc173f-8f5e-4200-88bc-9f12ae9f87cc"]
 pub struct Prefab {
-    entity_map: HashMap<PrefabNodeId, Entity>,
+    variant: PrefabVariantId,
+    entity_map: EntityMap,
     world: World,
     nested_prefabs: Vec<PrefabInstance>,
 }
