@@ -58,7 +58,8 @@ Prefab (
 
 ## TODO
 
-1. Instancing
-2. Embedded Assets
-3. Serialization
-4. Uuid support for Prefab variants and Component names
+1. Testing
+2. Better instancing API
+3. Embedded assets
+4. Serialization
+5. Uuid support for Prefab variants and Component names
