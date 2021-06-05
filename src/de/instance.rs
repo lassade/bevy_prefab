@@ -147,7 +147,7 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
         let source = source.unwrap_or_default(); // TODO: Should return error on missing field
         let parent = parent.unwrap_or_default();
         let transform = transform.unwrap_or_default();
-        let data = data.unwrap_or_default(); // TODO: Create prefab default data
+        let data = data.unwrap_or_else(|| (data_seed.descriptor.default)());
 
         Ok(PrefabInstance {
             id,
@@ -164,7 +164,7 @@ struct PrefabInstanceData {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceData {
-    type Value = Option<BoxedPrefabData>;
+    type Value = BoxedPrefabData;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -172,8 +172,7 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceData {
     {
         let PrefabInstanceData { descriptor } = self;
         let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
-        let data = (descriptor.de)(&mut deserializer).map_err(de::Error::custom)?;
-        Ok(Some(data))
+        (descriptor.de)(&mut deserializer).map_err(de::Error::custom)
     }
 }
 

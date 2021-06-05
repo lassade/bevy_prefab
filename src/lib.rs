@@ -63,7 +63,7 @@ pub struct PrefabInstance {
     parent: Option<Entity>,
     transform: PrefabInstanceTransform,
     // Data feed to construct script
-    data: Option<BoxedPrefabData>,
+    data: BoxedPrefabData,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
