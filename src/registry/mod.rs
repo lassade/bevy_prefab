@@ -1,7 +1,10 @@
 use std::{any::TypeId, sync::Arc};
 
 use anyhow::Result;
-use bevy::utils::HashMap;
+use bevy::{
+    ecs::{entity::EntityMap, world::World},
+    utils::HashMap,
+};
 use parking_lot::RwLock;
 use thiserror::Error;
 
@@ -78,6 +81,33 @@ impl<T: Send + Sync> Registry<T> {
 }
 
 impl<T: Send + Sync> Clone for Registry<T> {
+    fn clone(&self) -> Self {
+        Self {
+            lock: self.lock.clone(),
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+pub type PrefabMapEntitiesFn = fn(&mut World, &EntityMap);
+
+#[derive(Default)]
+pub(crate) struct PrefabMapEntitiesRegistryInner(pub Vec<PrefabMapEntitiesFn>);
+
+pub struct PrefabMapEntitiesRegistry {
+    pub(crate) lock: Arc<RwLock<PrefabMapEntitiesRegistryInner>>,
+}
+
+impl PrefabMapEntitiesRegistry {
+    pub(crate) fn empty() -> Self {
+        Self {
+            lock: Arc::new(RwLock::new(Default::default())),
+        }
+    }
+}
+
+impl Clone for PrefabMapEntitiesRegistry {
     fn clone(&self) -> Self {
         Self {
             lock: self.lock.clone(),

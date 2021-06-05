@@ -100,7 +100,6 @@ pub struct Prefab {
     transform: Transform,
     world: World,
     nested_prefabs: Vec<PrefabInstance>,
-    source_to_prefab: EntityMap,
 }
 
 // #[cfg(test)]
