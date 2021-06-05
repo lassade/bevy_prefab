@@ -46,6 +46,7 @@ use bevy::{
         world::World,
     },
     math::{Quat, Vec3},
+    prelude::Transform,
     reflect::{TypeUuid, Uuid},
 };
 use serde::{Deserialize, Serialize};
@@ -69,8 +70,8 @@ pub struct PrefabInstance {
 #[derive(Default, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PrefabInstanceTransform {
-    translation: Vec3,
-    rotation: Quat,
+    translation: Option<Vec3>,
+    rotation: Option<Quat>,
     scale: Option<Vec3>,
 }
 
@@ -106,6 +107,7 @@ impl Default for PrefabVariantId {
 #[uuid = "58bc173f-8f5e-4200-88bc-9f12ae9f87cc"]
 pub struct Prefab {
     defaults: BoxedPrefabData,
+    transform: Transform,
     entity_map: EntityMap,
     world: World,
     nested_prefabs: Vec<PrefabInstance>,

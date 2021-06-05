@@ -116,11 +116,13 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
                     id = Some(access.next_value()?);
                 }
                 Field::Source => {
-                    // TODO:
-                    // if source.is_some() {
-                    //     return Err(de::Error::duplicate_field("source"));
-                    // }
+                    if source.is_some() {
+                        return Err(de::Error::duplicate_field("source"));
+                    }
+                    // TODO: Handles aren't supported yet
                     // source = Some(access.next_value()?);
+                    access.next_value::<de::IgnoredAny>()?;
+                    transform = Some(Default::default());
                 }
                 Field::Transform => {
                     if transform.is_some() {
@@ -144,10 +146,12 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
         }
 
         let id = id.ok_or(de::Error::missing_field("id"))?;
-        let source = source.unwrap_or_default(); // TODO: Should return error on missing field
+        // TODO: Obligatory field, we just can't load assets yet :(
+        let source = source.unwrap_or_default();
         let parent = parent.unwrap_or_default();
         let transform = transform.unwrap_or_default();
-        let data = data.unwrap_or_else(|| (data_seed.descriptor.default)());
+        // TODO: Read defaults from the Parent prefab
+        let data = data.ok_or(de::Error::missing_field("data"))?;
 
         Ok(PrefabInstance {
             id,
@@ -386,7 +390,7 @@ mod tests {
     impl PrefabData for Lamp {
         fn construct(&self, world: &mut World) -> Result<()> {
             let _ = world;
-            todo!()
+            unimplemented!("blanket implementation")
         }
     }
 

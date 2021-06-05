@@ -63,7 +63,7 @@ impl PrefabDescriptorRegistry {
 /// Make [`std::any::type_name`] more human readable by trimming the type path
 pub(crate) fn shorten_name(input: &str) -> String {
     let mut chars = input.chars().rev();
-    let mut output = String::new();
+    let mut output = String::with_capacity(input.len()); // Reduce the number of allocations
     let mut depth = 0usize;
     let mut k = usize::MAX;
     while let Some(c) = chars.next() {

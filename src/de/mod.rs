@@ -100,11 +100,13 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
         #[serde(field_identifier, rename_all = "lowercase")]
         enum Field {
             Defaults,
+            Transform,
             Scene,
         }
 
         let mut entity_map = EntityMap::default();
         let mut defaults = None;
+        let mut transform = None;
         let mut world = World::default();
         let mut nested_prefabs = vec![];
 
@@ -124,6 +126,17 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
                     }
                     defaults = Some(access.next_value_seed(&data_seed)?);
                 }
+                Field::Transform => {
+                    if transform.is_some() {
+                        return Err(de::Error::duplicate_field("defaults"));
+                    }
+
+                    // TODO: Transform doesn't implement `Deserialize` nor `Serialize`
+                    // transform = Some(access.next_value()?);
+
+                    access.next_value::<de::IgnoredAny>()?;
+                    transform = Some(Default::default());
+                }
                 Field::Scene => {
                     access.next_value_seed(IdentifiedInstanceSeq {
                         entity_map: &mut entity_map,
@@ -137,8 +150,10 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
         }
 
         let defaults = defaults.unwrap_or_else(|| (data_seed.descriptor.default)());
+        let transform = transform.unwrap_or_default();
         Ok(Prefab {
             defaults,
+            transform,
             entity_map,
             world,
             nested_prefabs,
