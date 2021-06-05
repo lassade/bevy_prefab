@@ -9,37 +9,19 @@ use serde::{
 
 use crate::{
     registry::{ComponentDescriptor, PrefabDescriptor, RegistryInner},
-    Prefab, PrefabInstance,
+    Prefab,
 };
 
 mod component;
 mod instance;
 
+use instance::IdentifiedInstanceSeq;
+
 ///////////////////////////////////////////////////////////////////////////////
 
-//use component::*;
-// use prefab::*;
-
-pub(crate) struct SceneDeserializer<'a> {
-    entity_map: &'a mut EntityMap,
-    components: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
-    prefabs: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
-}
-
-impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
-    type Value = (World, Vec<PrefabInstance>);
-
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        todo!()
-    }
-}
-
-pub(crate) struct PrefabDeserializer<'a> {
-    components: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
-    prefabs: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
+pub struct PrefabDeserializer<'a> {
+    component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
+    prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for PrefabDeserializer<'a> {
@@ -73,11 +55,12 @@ impl<'a, 'de> Visitor<'de> for PrefabDeserializer<'a> {
 
         let mut entity_map = EntityMap::default();
         let mut variant = None;
-        let mut scene = None;
+        let mut world = World::default();
+        let mut nested_prefabs = vec![];
 
         let PrefabDeserializer {
-            components,
-            prefabs,
+            component_registry,
+            prefab_registry,
         } = self;
 
         while let Some(key) = access.next_key()? {
@@ -89,21 +72,18 @@ impl<'a, 'de> Visitor<'de> for PrefabDeserializer<'a> {
                     variant = Some(access.next_value()?);
                 }
                 Field::Scene => {
-                    if scene.is_some() {
-                        return Err(de::Error::duplicate_field("data"));
-                    }
-                    scene = Some(access.next_value_seed(SceneDeserializer {
+                    access.next_value_seed(IdentifiedInstanceSeq {
                         entity_map: &mut entity_map,
-                        components,
-                        prefabs,
-                    })?);
+                        world: &mut world,
+                        nested_prefabs: &mut nested_prefabs,
+                        component_registry,
+                        prefab_registry,
+                    })?;
                 }
             }
         }
 
         let variant = variant.unwrap_or_default();
-        let (world, nested_prefabs) = scene.ok_or(de::Error::missing_field("scene"))?;
-
         Ok(Prefab {
             variant,
             entity_map,

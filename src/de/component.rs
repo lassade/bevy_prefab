@@ -70,6 +70,8 @@ impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentData<'a, 'w> {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 struct IdentifiedComponent<'a, 'w> {
     entity_builder: &'a mut EntityMut<'w>,
     component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
@@ -113,9 +115,11 @@ impl<'a, 'w, 'de> Visitor<'de> for IdentifiedComponent<'a, 'w> {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 pub(crate) struct IdentifiedComponentSeq<'a, 'w> {
-    pub(crate) entity_builder: &'a mut EntityMut<'w>,
-    pub(crate) component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
+    pub entity_builder: &'a mut EntityMut<'w>,
+    pub component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
 }
 
 impl<'a, 'w, 'de> DeserializeSeed<'de> for IdentifiedComponentSeq<'a, 'w> {

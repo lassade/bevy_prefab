@@ -7,7 +7,7 @@ use bevy::ecs::{
 };
 use parking_lot::RwLockReadGuard;
 use serde::{
-    de::{self, DeserializeSeed, EnumAccess, MapAccess, VariantAccess, Visitor},
+    de::{self, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
     Deserialize, Deserializer,
 };
 
@@ -81,7 +81,7 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
     type Value = PrefabInstance;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a `PrefabInstance`")
+        formatter.write_str("a `PrefabInstance` struct")
     }
 
     fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
@@ -242,7 +242,7 @@ impl<'a, 'de> DeserializeSeed<'de> for EntityInstanceDeserializer<'a> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub(crate) struct IdentifiedInstance<'a> {
+struct IdentifiedInstance<'a> {
     entity_map: &'a mut EntityMap,
     world: &'a mut World,
     nested_prefabs: &'a mut Vec<PrefabInstance>,
@@ -300,6 +300,61 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
                 Ok(())
             }
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+pub(crate) struct IdentifiedInstanceSeq<'a> {
+    pub entity_map: &'a mut EntityMap,
+    pub world: &'a mut World,
+    pub nested_prefabs: &'a mut Vec<PrefabInstance>,
+    pub component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
+    pub prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for IdentifiedInstanceSeq<'a> {
+    type Value = ();
+
+    #[inline]
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(self)
+    }
+}
+
+impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a `Prefab` or `Entity` sequence")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let IdentifiedInstanceSeq {
+            entity_map,
+            world,
+            nested_prefabs,
+            component_registry,
+            prefab_registry,
+        } = self;
+
+        while let Some(_) = seq.next_element_seed(IdentifiedInstance {
+            entity_map,
+            world,
+            nested_prefabs,
+            component_registry,
+            prefab_registry,
+        })? {
+            // Do nothing, just deserialize all elements in the sequence
+        }
+
+        Ok(())
     }
 }
 
