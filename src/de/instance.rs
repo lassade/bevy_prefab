@@ -54,7 +54,7 @@ impl<'a, 'de> Visitor<'de> for InstanceIdentifier<'a> {
         let InstanceIdentifier {
             prefab_registry: registry,
         } = self;
-        match registry.named.get(v).cloned() {
+        match registry.find_by_name(v).cloned() {
             Some(descriptor) => Ok(Identifier::Prefab(descriptor)),
             None => {
                 // Plain entity

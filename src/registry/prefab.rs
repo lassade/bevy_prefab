@@ -1,21 +1,21 @@
-use std::{any::type_name, collections::hash_map::Entry};
+use std::any::{type_name, TypeId};
 
 use anyhow::Result;
 use serde::Deserialize;
 
 use crate::{BoxedPrefabData, PrefabData};
 
-use super::{Registry, RegistryError};
+use super::Registry;
 
 pub(crate) type PrefabDeserializerFn =
-    dyn Fn(&mut dyn erased_serde::Deserializer) -> Result<BoxedPrefabData> + Send + Sync;
+    fn(&mut dyn erased_serde::Deserializer) -> Result<BoxedPrefabData>;
 
-pub(crate) type PrefabDefaultFn = dyn Fn() -> BoxedPrefabData + Send + Sync;
+pub(crate) type PrefabDefaultFn = fn() -> BoxedPrefabData;
 
 #[derive(Clone)]
 pub struct PrefabDescriptor {
-    pub(crate) de: &'static PrefabDeserializerFn,
-    pub(crate) default: &'static PrefabDefaultFn,
+    pub(crate) de: PrefabDeserializerFn,
+    pub(crate) default: PrefabDefaultFn,
 }
 
 /// Registry of all prefab types available
@@ -46,22 +46,14 @@ impl PrefabDescriptorRegistry {
         T: PrefabData + Default + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {
         let mut lock = self.lock.write();
-        let entry = lock.named.entry(alias);
-        match entry {
-            Entry::Occupied(occupied) => Err(RegistryError::AliasAlreadyRegistered(
-                occupied.key().to_string(),
-            ))?,
-            Entry::Vacant(vacant) => {
-                vacant.insert(PrefabDescriptor {
-                    de: &|deserializer| {
-                        let value: T = Deserialize::deserialize(deserializer)?;
-                        Ok(BoxedPrefabData(Box::new(value)))
-                    },
-                    default: &|| BoxedPrefabData(Box::new(T::default())),
-                });
-                Ok(())
-            }
-        }
+        let type_info = (TypeId::of::<T>(), type_name::<T>());
+        lock.register_internal(alias, type_info, || PrefabDescriptor {
+            de: |deserializer| {
+                let value: T = Deserialize::deserialize(deserializer)?;
+                Ok(BoxedPrefabData(Box::new(value)))
+            },
+            default: || BoxedPrefabData(Box::new(T::default())),
+        })
     }
 }
 

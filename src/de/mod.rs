@@ -52,7 +52,7 @@ impl<'a, 'de> Visitor<'de> for PrefabVariant<'a> {
         let PrefabVariant {
             prefab_registry: registry,
         } = self;
-        match registry.named.get(v).cloned() {
+        match registry.find_by_name(v).cloned() {
             Some(descriptor) => Ok(descriptor),
             None => Err(de::Error::unknown_variant(v, &[])),
         }

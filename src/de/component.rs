@@ -41,8 +41,7 @@ impl<'a, 'de> Visitor<'de> for ComponentIdentifier<'a> {
     {
         let ComponentIdentifier { component_registry } = self;
         component_registry
-            .named
-            .get(v)
+            .find_by_name(v)
             .cloned()
             .ok_or_else(|| de::Error::unknown_variant(v, &[]))
     }
