@@ -52,6 +52,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod data;
 pub mod de;
+pub mod manager;
 pub mod registry;
 
 pub use data::{BoxedPrefabData, PrefabData};
@@ -97,9 +98,9 @@ impl Default for PrefabVariantId {
 pub struct Prefab {
     defaults: BoxedPrefabData,
     transform: Transform,
-    entity_map: EntityMap,
     world: World,
     nested_prefabs: Vec<PrefabInstance>,
+    source_to_prefab: EntityMap,
 }
 
 // #[cfg(test)]

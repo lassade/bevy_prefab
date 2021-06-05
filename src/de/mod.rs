@@ -104,7 +104,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             Scene,
         }
 
-        let mut entity_map = EntityMap::default();
+        let mut source_to_prefab = EntityMap::default();
         let mut defaults = None;
         let mut transform = None;
         let mut world = World::default();
@@ -139,7 +139,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
                 }
                 Field::Scene => {
                     access.next_value_seed(IdentifiedInstanceSeq {
-                        entity_map: &mut entity_map,
+                        source_to_prefab: &mut source_to_prefab,
                         world: &mut world,
                         nested_prefabs: &mut nested_prefabs,
                         component_registry,
@@ -154,9 +154,9 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
         Ok(Prefab {
             defaults,
             transform,
-            entity_map,
             world,
             nested_prefabs,
+            source_to_prefab,
         })
     }
 }

@@ -186,7 +186,7 @@ const ENTITY_INSTANCE_FIELDS: &'static [&'static str] = &["id", "components"];
 
 struct EntityInstanceDeserializer<'a> {
     world: &'a mut World,
-    entity_map: &'a mut EntityMap,
+    source_to_prefab: &'a mut EntityMap,
     component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
 }
 
@@ -210,7 +210,7 @@ impl<'a, 'de> Visitor<'de> for EntityInstanceDeserializer<'a> {
 
         let EntityInstanceDeserializer {
             world,
-            entity_map,
+            source_to_prefab,
             component_registry,
         } = self;
 
@@ -233,7 +233,7 @@ impl<'a, 'de> Visitor<'de> for EntityInstanceDeserializer<'a> {
         }
 
         let id = id.ok_or(de::Error::missing_field("id"))?;
-        entity_map.insert(id, entity_builder.id());
+        source_to_prefab.insert(id, entity_builder.id());
 
         Ok(())
     }
@@ -253,7 +253,7 @@ impl<'a, 'de> DeserializeSeed<'de> for EntityInstanceDeserializer<'a> {
 ///////////////////////////////////////////////////////////////////////////////
 
 struct IdentifiedInstance<'a> {
-    entity_map: &'a mut EntityMap,
+    source_to_prefab: &'a mut EntityMap,
     world: &'a mut World,
     nested_prefabs: &'a mut Vec<PrefabInstance>,
     component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
@@ -284,7 +284,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
         A: EnumAccess<'de>,
     {
         let IdentifiedInstance {
-            entity_map,
+            source_to_prefab,
             world,
             nested_prefabs,
             component_registry,
@@ -298,7 +298,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
                 ENTITY_INSTANCE_FIELDS,
                 EntityInstanceDeserializer {
                     world,
-                    entity_map,
+                    source_to_prefab,
                     component_registry,
                 },
             ),
@@ -316,7 +316,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
 ///////////////////////////////////////////////////////////////////////////////
 
 pub(crate) struct IdentifiedInstanceSeq<'a> {
-    pub entity_map: &'a mut EntityMap,
+    pub source_to_prefab: &'a mut EntityMap,
     pub world: &'a mut World,
     pub nested_prefabs: &'a mut Vec<PrefabInstance>,
     pub component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
@@ -347,7 +347,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
         A: SeqAccess<'de>,
     {
         let IdentifiedInstanceSeq {
-            entity_map,
+            source_to_prefab,
             world,
             nested_prefabs,
             component_registry,
@@ -355,7 +355,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
         } = self;
 
         while let Some(_) = seq.next_element_seed(IdentifiedInstance {
-            entity_map,
+            source_to_prefab,
             world,
             nested_prefabs,
             component_registry,
@@ -370,7 +370,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
 
 #[cfg(test)]
 mod tests {
-    use bevy::ecs::world::World;
+    use bevy::ecs::world::{EntityMut, World};
     use serde::Deserialize;
 
     use super::*;
@@ -388,9 +388,14 @@ mod tests {
     }
 
     impl PrefabData for Lamp {
-        fn construct(&self, world: &mut World) -> Result<()> {
+        fn construct(&self, world: &mut World, root: Entity) -> Result<()> {
             let _ = world;
+            let _ = root;
             unimplemented!("blanket implementation")
+        }
+
+        fn copy_to_instance(&self, instance: &mut EntityMut) {
+            instance.insert(self.clone());
         }
     }
 
@@ -402,7 +407,7 @@ mod tests {
         let prefab_registry = PrefabDescriptorRegistry::default();
         prefab_registry.register::<Lamp>().unwrap();
 
-        let mut entity_map = EntityMap::default();
+        let mut source_to_prefab = EntityMap::default();
         let mut world = World::default();
         let mut nested_prefabs = vec![];
 
@@ -426,7 +431,7 @@ mod tests {
 
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let visitor = IdentifiedInstance {
-            entity_map: &mut entity_map,
+            source_to_prefab: &mut source_to_prefab,
             world: &mut world,
             nested_prefabs: &mut nested_prefabs,
             component_registry: &component_registry.lock.read(),
@@ -443,7 +448,7 @@ mod tests {
 
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let visitor = IdentifiedInstance {
-            entity_map: &mut entity_map,
+            source_to_prefab: &mut source_to_prefab,
             world: &mut world,
             nested_prefabs: &mut nested_prefabs,
             component_registry: &component_registry.lock.read(),

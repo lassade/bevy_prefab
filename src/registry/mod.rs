@@ -32,10 +32,8 @@ impl<T> RegistryInner<T> {
         self.named.get(name).and_then(|i| self.contents.get(*i))
     }
 
-    pub fn find_by_type<K: 'static>(&self) -> Option<&T> {
-        self.typed
-            .get(&TypeId::of::<K>())
-            .and_then(|i| self.contents.get(*i))
+    pub fn find_by_type(&self, type_id: TypeId) -> Option<&T> {
+        self.typed.get(&type_id).and_then(|i| self.contents.get(*i))
     }
 
     fn register_internal(
