@@ -104,6 +104,9 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
         let mut parent = None;
         let mut data = None;
 
+        let PrefabInstanceDeserializer { descriptor } = self;
+        let data_seed = PrefabInstanceData { descriptor };
+
         while let Some(key) = access.next_key()? {
             match key {
                 Field::Id => {
@@ -135,7 +138,7 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
                     if data.is_some() {
                         return Err(de::Error::duplicate_field("data"));
                     }
-                    data = Some(access.next_value_seed(&self)?);
+                    data = Some(access.next_value_seed(&data_seed)?);
                 }
             }
         }
@@ -156,14 +159,18 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
     }
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceDeserializer {
+struct PrefabInstanceData {
+    descriptor: PrefabDescriptor,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceData {
     type Value = Option<BoxedPrefabData>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let PrefabInstanceDeserializer { descriptor } = self;
+        let PrefabInstanceData { descriptor } = self;
         let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
         let data = (descriptor.de)(&mut deserializer).map_err(de::Error::custom)?;
         Ok(Some(data))
@@ -372,7 +379,7 @@ mod tests {
     #[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
     struct Name(String);
 
-    #[derive(Debug, Deserialize, Clone)]
+    #[derive(Default, Debug, Deserialize, Clone)]
     struct Lamp {
         light_strength: f32,
     }

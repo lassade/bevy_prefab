@@ -26,8 +26,8 @@ pub struct Registry<T> {
     pub(crate) lock: Arc<RwLock<RegistryInner<T>>>,
 }
 
-impl<T> Default for Registry<T> {
-    fn default() -> Self {
+impl<T> Registry<T> {
+    pub(crate) fn empty() -> Self {
         Self {
             lock: Arc::new(RwLock::new(RegistryInner {
                 named: Default::default(),

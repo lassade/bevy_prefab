@@ -10,21 +10,35 @@ use super::{Registry, RegistryError};
 #[derive(Clone)]
 pub struct PrefabDescriptor {
     pub(crate) de: &'static dyn Fn(&mut dyn erased_serde::Deserializer) -> Result<BoxedPrefabData>,
+    pub(crate) default: &'static dyn Fn() -> BoxedPrefabData,
 }
 
+/// Registry of all prefab types available
+///
+/// **NOTE** The alias `"Prefab"` is registered by default, and uses [`()`] as their [`PrefabData`];
 pub type PrefabDescriptorRegistry = Registry<PrefabDescriptor>;
+
+impl Default for PrefabDescriptorRegistry {
+    fn default() -> Self {
+        let registry = Self::empty();
+        registry
+            .register_aliased::<()>("Prefab".to_string())
+            .unwrap();
+        registry
+    }
+}
 
 impl PrefabDescriptorRegistry {
     pub fn register<T>(&self) -> Result<()>
     where
-        T: PrefabData + Send + Sync + for<'de> Deserialize<'de> + 'static,
+        T: PrefabData + Default + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {
         self.register_aliased::<T>(shorten_name(type_name::<T>()))
     }
 
     pub fn register_aliased<T>(&self, alias: String) -> Result<()>
     where
-        T: PrefabData + Send + Sync + for<'de> Deserialize<'de> + 'static,
+        T: PrefabData + Default + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {
         let mut lock = self.lock.write();
         let entry = lock.named.entry(alias);
@@ -38,6 +52,7 @@ impl PrefabDescriptorRegistry {
                         let value: T = Deserialize::deserialize(deserializer)?;
                         Ok(BoxedPrefabData(Box::new(value)))
                     },
+                    default: &|| BoxedPrefabData(Box::new(T::default())),
                 });
                 Ok(())
             }

@@ -2,10 +2,7 @@
 //!
 //! ```ron,ignore
 //! Prefab (
-//!     variant: (
-//!         uuid: <uuid>,
-//!         name: <prefab variant name>,
-//!     ),
+//!     defaults: { ... },
 //!     scene: [
 //!         Entity (
 //!             id: 67234,
@@ -78,6 +75,12 @@ pub trait PrefabData: Debug {
     fn construct(&self, world: &mut World) -> Result<()>;
 }
 
+impl PrefabData for () {
+    fn construct(&self, _: &mut World) -> Result<()> {
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct BoxedPrefabData(pub(crate) Box<dyn PrefabData + Send + Sync>);
 
@@ -99,7 +102,7 @@ impl Default for PrefabVariantId {
 #[derive(Debug, TypeUuid)]
 #[uuid = "58bc173f-8f5e-4200-88bc-9f12ae9f87cc"]
 pub struct Prefab {
-    variant: PrefabVariantId,
+    defaults: BoxedPrefabData,
     entity_map: EntityMap,
     world: World,
     nested_prefabs: Vec<PrefabInstance>,

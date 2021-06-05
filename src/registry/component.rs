@@ -16,6 +16,13 @@ pub struct ComponentDescriptor {
 
 pub type ComponentDescriptorRegistry = Registry<ComponentDescriptor>;
 
+impl Default for ComponentDescriptorRegistry {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 impl ComponentDescriptorRegistry {
     pub fn register<T>(&self) -> Result<()>
     where
