@@ -38,7 +38,6 @@
 
 use std::fmt::Debug;
 
-use anyhow::Result;
 use bevy::{
     asset::Handle,
     ecs::{
@@ -51,8 +50,11 @@ use bevy::{
 };
 use serde::{Deserialize, Serialize};
 
+pub mod data;
 pub mod de;
 pub mod registry;
+
+pub use data::{BoxedPrefabData, PrefabData};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -74,19 +76,6 @@ pub struct PrefabInstanceTransform {
     rotation: Option<Quat>,
     scale: Option<Vec3>,
 }
-
-pub trait PrefabData: Debug {
-    fn construct(&self, world: &mut World) -> Result<()>;
-}
-
-impl PrefabData for () {
-    fn construct(&self, _: &mut World) -> Result<()> {
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct BoxedPrefabData(pub(crate) Box<dyn PrefabData + Send + Sync>);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PrefabVariantId {

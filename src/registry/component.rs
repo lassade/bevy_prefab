@@ -7,7 +7,7 @@ use serde::Deserialize;
 use super::{Registry, RegistryError};
 
 pub(crate) type ComponentDeserializerFn =
-    dyn Fn(&mut dyn erased_serde::Deserializer, &mut EntityMut) -> Result<()>;
+    dyn Fn(&mut dyn erased_serde::Deserializer, &mut EntityMut) -> Result<()> + Send + Sync;
 
 #[derive(Clone)]
 pub struct ComponentDescriptor {

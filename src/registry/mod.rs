@@ -22,11 +22,11 @@ pub(crate) struct RegistryInner<T> {
     pub(crate) named: HashMap<String, T>,
 }
 
-pub struct Registry<T> {
+pub struct Registry<T: Send + Sync> {
     pub(crate) lock: Arc<RwLock<RegistryInner<T>>>,
 }
 
-impl<T> Registry<T> {
+impl<T: Send + Sync> Registry<T> {
     pub(crate) fn empty() -> Self {
         Self {
             lock: Arc::new(RwLock::new(RegistryInner {
@@ -36,7 +36,7 @@ impl<T> Registry<T> {
     }
 }
 
-impl<T> Clone for Registry<T> {
+impl<T: Send + Sync> Clone for Registry<T> {
     fn clone(&self) -> Self {
         Self {
             lock: self.lock.clone(),

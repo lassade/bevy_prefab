@@ -7,10 +7,15 @@ use crate::{BoxedPrefabData, PrefabData};
 
 use super::{Registry, RegistryError};
 
+pub(crate) type PrefabDeserializerFn =
+    dyn Fn(&mut dyn erased_serde::Deserializer) -> Result<BoxedPrefabData> + Send + Sync;
+
+pub(crate) type PrefabDefaultFn = dyn Fn() -> BoxedPrefabData + Send + Sync;
+
 #[derive(Clone)]
 pub struct PrefabDescriptor {
-    pub(crate) de: &'static dyn Fn(&mut dyn erased_serde::Deserializer) -> Result<BoxedPrefabData>,
-    pub(crate) default: &'static dyn Fn() -> BoxedPrefabData,
+    pub(crate) de: &'static PrefabDeserializerFn,
+    pub(crate) default: &'static PrefabDefaultFn,
 }
 
 /// Registry of all prefab types available
