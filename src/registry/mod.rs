@@ -98,12 +98,12 @@ pub type MapWorldComponentsFn = fn(&mut World, &EntityMap);
 pub type MapEntityComponentsFn = fn(&mut EntityMut, &EntityMap);
 
 #[derive(Default)]
-pub(crate) struct PrefabEntityMapperRegistryInner {
+pub(crate) struct ComponentEntityMapperRegistryInner {
     world: Vec<MapWorldComponentsFn>,
     entity: Vec<MapEntityComponentsFn>,
 }
 
-impl PrefabEntityMapperRegistryInner {
+impl ComponentEntityMapperRegistryInner {
     pub fn map_world_components(&self, world: &mut World, entity_map: &EntityMap) {
         for map in &self.world {
             (map)(world, &entity_map);
@@ -117,11 +117,11 @@ impl PrefabEntityMapperRegistryInner {
     }
 }
 
-pub struct PrefabEntitiesMapperRegistry {
-    pub(crate) lock: Arc<RwLock<PrefabEntityMapperRegistryInner>>,
+pub struct ComponentEntityMapperRegistry {
+    pub(crate) lock: Arc<RwLock<ComponentEntityMapperRegistryInner>>,
 }
 
-impl PrefabEntitiesMapperRegistry {
+impl ComponentEntityMapperRegistry {
     pub(crate) fn empty() -> Self {
         Self {
             lock: Arc::new(RwLock::new(Default::default())),
@@ -129,7 +129,7 @@ impl PrefabEntitiesMapperRegistry {
     }
 }
 
-impl Clone for PrefabEntitiesMapperRegistry {
+impl Clone for ComponentEntityMapperRegistry {
     fn clone(&self) -> Self {
         Self {
             lock: self.lock.clone(),

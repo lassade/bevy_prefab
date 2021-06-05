@@ -1,6 +1,7 @@
 use std::any::{type_name, TypeId};
 
 use anyhow::Result;
+use bevy::prelude::{Entity, World};
 use serde::Deserialize;
 
 use crate::{BoxedPrefabData, PrefabData};
@@ -12,10 +13,13 @@ pub(crate) type PrefabDeserializerFn =
 
 pub(crate) type PrefabDefaultFn = fn() -> BoxedPrefabData;
 
+pub(crate) type PrefabConstructFn = fn(&mut World, Entity) -> Result<()>;
+
 #[derive(Clone)]
 pub struct PrefabDescriptor {
     pub(crate) de: PrefabDeserializerFn,
     pub(crate) default: PrefabDefaultFn,
+    pub(crate) construct: PrefabConstructFn,
 }
 
 /// Registry of all prefab types available
@@ -36,14 +40,14 @@ impl Default for PrefabDescriptorRegistry {
 impl PrefabDescriptorRegistry {
     pub fn register<T>(&self) -> Result<()>
     where
-        T: PrefabData + Default + Send + Sync + for<'de> Deserialize<'de> + 'static,
+        T: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {
         self.register_aliased::<T>(shorten_name(type_name::<T>()))
     }
 
     pub fn register_aliased<T>(&self, alias: String) -> Result<()>
     where
-        T: PrefabData + Default + Send + Sync + for<'de> Deserialize<'de> + 'static,
+        T: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {
         let mut lock = self.lock.write();
         let type_info = (TypeId::of::<T>(), type_name::<T>());
@@ -53,6 +57,13 @@ impl PrefabDescriptorRegistry {
                 Ok(BoxedPrefabData(Box::new(value)))
             },
             default: || BoxedPrefabData(Box::new(T::default())),
+            construct: |world, root| {
+                world
+                    .get_entity_mut(root)
+                    .and_then(|e| e.get::<T>().cloned())
+                    .ok_or_else(|| todo!())
+                    .and_then(|data| T::construct(&data, world, root))
+            },
         })
     }
 }

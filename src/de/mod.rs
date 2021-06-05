@@ -12,11 +12,11 @@ use serde::{
 
 use crate::{
     registry::{
-        ComponentDescriptor, ComponentDescriptorRegistry, PrefabDescriptor,
-        PrefabDescriptorRegistry, PrefabEntitiesMapperRegistry, PrefabEntityMapperRegistryInner,
+        ComponentDescriptor, ComponentDescriptorRegistry, ComponentEntityMapperRegistry,
+        ComponentEntityMapperRegistryInner, PrefabDescriptor, PrefabDescriptorRegistry,
         RegistryInner,
     },
-    BoxedPrefabData, Prefab, PrefabNotInstantiatedTag,
+    BoxedPrefabData, Prefab, PrefabConstruct, PrefabNotInstantiatedTag,
 };
 
 mod component;
@@ -85,7 +85,7 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabDataDeserializer {
 
 struct PrefabBody<'a> {
     descriptor: PrefabDescriptor,
-    entity_mapper: &'a RwLockReadGuard<'a, PrefabEntityMapperRegistryInner>,
+    entity_mapper: &'a RwLockReadGuard<'a, ComponentEntityMapperRegistryInner>,
     component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
     prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
 }
@@ -122,6 +122,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             prefab_registry,
         } = self;
 
+        let construct = descriptor.construct.clone();
         let data_seed = PrefabDataDeserializer { descriptor };
 
         while let Some(key) = access.next_key()? {
@@ -167,7 +168,8 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             blank.insert_bundle((
                 nested.source.clone(),
                 nested.transform.clone(),
-                PrefabNotInstantiatedTag(0),
+                PrefabNotInstantiatedTag,
+                PrefabConstruct(construct),
             ));
 
             let prefab_data = &nested.data.0;
@@ -203,14 +205,14 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
 const PREFAB_FIELDS: &'static [&'static str] = &["defaults", "scene"];
 
 pub struct PrefabDeserializer<'a> {
-    entity_mapper: RwLockReadGuard<'a, PrefabEntityMapperRegistryInner>,
+    entity_mapper: RwLockReadGuard<'a, ComponentEntityMapperRegistryInner>,
     component_registry: RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
     prefab_registry: RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
 }
 
 impl<'a> PrefabDeserializer<'a> {
     pub fn new(
-        entity_mapper: &'a PrefabEntitiesMapperRegistry,
+        entity_mapper: &'a ComponentEntityMapperRegistry,
         component_registry: &'a ComponentDescriptorRegistry,
         prefab_registry: &'a PrefabDescriptorRegistry,
     ) -> Self {

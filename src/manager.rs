@@ -1,10 +1,13 @@
-use std::collections::hash_map::Entry;
-
-use anyhow::Result;
-use bevy::{ecs::entity::EntityMap, prelude::*};
+use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashSet};
 use thiserror::Error;
 
-use crate::{Prefab, PrefabInstance, PrefabInstanceTransform, PrefabNotInstantiatedTag, registry::{ComponentDescriptor, ComponentDescriptorRegistry, PrefabEntitiesMapperRegistry, PrefabEntityMapperRegistryInner, RegistryInner}};
+use crate::{
+    registry::{
+        ComponentDescriptor, ComponentDescriptorRegistry, ComponentEntityMapperRegistry,
+        ComponentEntityMapperRegistryInner, RegistryInner,
+    },
+    Prefab, PrefabConstruct, PrefabInstanceTransform, PrefabNotInstantiatedTag,
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -12,39 +15,42 @@ use crate::{Prefab, PrefabInstance, PrefabInstanceTransform, PrefabNotInstantiat
 pub enum PrefabSpawnError {
     #[error("prefab not found")]
     MissingPrefab(Handle<Prefab>),
-    // #[error("prefab contains the unregistered, consider registering it using `app.register_prefab_component::<{0}>()`")]
-    // UnregisteredType(&'static str),
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub(crate) fn prefab_managing_system(world: &mut World) {
-    world.resource_scope(|world, prefabs: Mut<Assets<Prefab>>| {
-    world.resource_scope(|world, components: Mut<ComponentDescriptorRegistry>| {
-    world.resource_scope(|world, entity_mapper: Mut<PrefabEntitiesMapperRegistry>| {
-        let prefabs = &*prefabs;
-        let component_registry = &*components.lock.read();
-        let entity_mapper = &*entity_mapper.lock.read();
-        let mut prefabs_stack = vec![];
+struct Instantiate(Entity, Handle<Prefab>);
 
-        for (entity, handle, tag) in world
-            .query::<(Entity, &Handle<Prefab>, &PrefabNotInstantiatedTag)>()
-            .iter(world)
-        {
-            prefabs_stack.push((entity, handle.clone_weak(), tag.0));
-        }
+fn enqueue_prefab_not_instantiated(world: &mut World, queue: &mut Vec<Instantiate>) {
+    for (entity, handle, _) in world
+        .query::<(Entity, &Handle<Prefab>, &PrefabNotInstantiatedTag)>()
+        .iter(world)
+    {
+        queue.push(Instantiate(entity, handle.clone_weak()));
+    }
+}
 
-        // Order buffer to first instantiate the nested prefabs
-        prefabs_stack.sort_by(|(_, _, a), (_, _, b)| a.cmp(b));
+fn prefab_spawner(
+    world: &mut World,
+    prefabs: &Assets<Prefab>,
+    prefabs_queue: &mut Vec<Instantiate>,
+    component_mapper: &ComponentEntityMapperRegistryInner,
+    component_registry: &RegistryInner<ComponentDescriptor>,
+) {
+    let mut blacklist = HashSet::default();
 
-        while let Some((root_entity, source_prefab, _)) = prefabs_stack.pop() {
-            // TODO: we can not know when a nested prefab finished loading or not
+    loop {
+        while let Some(Instantiate(root_entity, source_prefab)) = prefabs_queue.pop() {
+            // TODO: we can not know when a nested prefab finished loading or not, that causes a lot of issues
             // TODO: remove PrefabNotInstantiatedTag and add PrefabMissing
             let prefab = match prefabs.get(&source_prefab) {
                 Some(prefab) => prefab,
-                None => continue,
+                None => {
+                    blacklist.insert(root_entity);
+                    continue;
+                }
             };
-            
+
             let mut prefab_to_instance = EntityMap::default();
 
             // Copy prefab entities over
@@ -74,7 +80,7 @@ pub(crate) fn prefab_managing_system(world: &mut World) {
                 let mut instance = world.entity_mut(instance_entity);
 
                 // Map entities components to instance space
-                entity_mapper.map_entity_components(&mut instance, &prefab_to_instance);
+                component_mapper.map_entity_components(&mut instance, &prefab_to_instance);
 
                 // Parent all root prefab entities under the instance root
                 if instance.get::<Parent>().is_none() {
@@ -102,10 +108,48 @@ pub(crate) fn prefab_managing_system(world: &mut World) {
             }
             root.insert(transform);
 
-            //let prefab_data = &prefab_instance.data.0;
-
-            // TODO: Run construct prefab function
-            // prefab_data.construct(world, root_entity)?;
+            // Run construct function
+            if let Some(prefab_construct) = root.remove::<PrefabConstruct>() {
+                (prefab_construct.0)(world, root_entity).unwrap();
+            }
         }
-    }); }); });
+
+        enqueue_prefab_not_instantiated(world, prefabs_queue);
+
+        // TODO: very hacky and expensive, we don't know when a prefab was finished loading
+        prefabs_queue.retain(|Instantiate(x, _)| !blacklist.contains(x));
+
+        // Nothing left to spawn
+        if prefabs_queue.is_empty() {
+            break;
+        }
+    }
+}
+
+pub fn prefab_managing_system(world: &mut World) {
+    let mut prefabs_queue = vec![];
+
+    // Avoid extra working or using resource scope every frame if none prefabs
+    enqueue_prefab_not_instantiated(world, &mut prefabs_queue);
+
+    if prefabs_queue.is_empty() {
+        return;
+    }
+
+    world.resource_scope(|world, prefabs: Mut<Assets<Prefab>>| {
+        world.resource_scope(|world, components: Mut<ComponentDescriptorRegistry>| {
+            world.resource_scope(
+                |world, component_mapper: Mut<ComponentEntityMapperRegistry>| {
+                    //
+                    prefab_spawner(
+                        world,
+                        &*prefabs,
+                        &mut prefabs_queue,
+                        &*component_mapper.lock.read(),
+                        &*components.lock.read(),
+                    )
+                },
+            );
+        });
+    });
 }

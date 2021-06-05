@@ -40,10 +40,7 @@ use std::fmt::Debug;
 
 use bevy::{
     asset::Handle,
-    ecs::{
-        entity::{Entity, EntityMap},
-        world::World,
-    },
+    ecs::{entity::Entity, world::World},
     math::{Quat, Vec3},
     prelude::Transform,
     reflect::{TypeUuid, Uuid},
@@ -101,8 +98,13 @@ pub struct Prefab {
     world: World,
 }
 
+/// Tags a prefab with pending instancing
 #[derive(Default, Debug)]
-pub struct PrefabNotInstantiatedTag(usize);
+pub struct PrefabNotInstantiatedTag;
 
+/// Tags a prefab as missing
 #[derive(Default, Debug)]
 pub struct PrefabMissingTag;
+
+/// Encapsulates the prefab construct function
+pub struct PrefabConstruct(registry::PrefabConstructFn);

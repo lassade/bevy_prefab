@@ -18,7 +18,7 @@ impl PrefabData for () {
         Ok(())
     }
 
-    fn copy_to_instance(&self, instance: &mut EntityMut) {}
+    fn copy_to_instance(&self, _: &mut EntityMut) {}
 }
 
 #[derive(Debug)]
