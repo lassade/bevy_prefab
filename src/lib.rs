@@ -99,8 +99,10 @@ pub struct Prefab {
     defaults: BoxedPrefabData,
     transform: Transform,
     world: World,
-    nested_prefabs: Vec<PrefabInstance>,
 }
+
+#[derive(Default, Debug)]
+pub struct PrefabMissingTag;
 
 // #[cfg(test)]
 // mod tests {

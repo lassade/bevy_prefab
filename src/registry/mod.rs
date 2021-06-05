@@ -90,16 +90,24 @@ impl<T: Send + Sync> Clone for Registry<T> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub type PrefabMapEntitiesFn = fn(&mut World, &EntityMap);
+pub type MapPrefabEntitiesFn = fn(&mut World, &EntityMap);
 
 #[derive(Default)]
-pub(crate) struct PrefabMapEntitiesRegistryInner(pub Vec<PrefabMapEntitiesFn>);
+pub(crate) struct PrefabEntityMapperRegistryInner(pub Vec<MapPrefabEntitiesFn>);
 
-pub struct PrefabMapEntitiesRegistry {
-    pub(crate) lock: Arc<RwLock<PrefabMapEntitiesRegistryInner>>,
+impl PrefabEntityMapperRegistryInner {
+    pub fn map_entities(&self, world: &mut World, entity_map: &EntityMap) {
+        for map in &self.0 {
+            (map)(world, &entity_map);
+        }
+    }
 }
 
-impl PrefabMapEntitiesRegistry {
+pub struct PrefabEntitiesMapperRegistry {
+    pub(crate) lock: Arc<RwLock<PrefabEntityMapperRegistryInner>>,
+}
+
+impl PrefabEntitiesMapperRegistry {
     pub(crate) fn empty() -> Self {
         Self {
             lock: Arc::new(RwLock::new(Default::default())),
@@ -107,7 +115,7 @@ impl PrefabMapEntitiesRegistry {
     }
 }
 
-impl Clone for PrefabMapEntitiesRegistry {
+impl Clone for PrefabEntitiesMapperRegistry {
     fn clone(&self) -> Self {
         Self {
             lock: self.lock.clone(),

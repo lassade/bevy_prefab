@@ -1,6 +1,9 @@
 use std::fmt;
 
-use bevy::ecs::{entity::EntityMap, world::World};
+use bevy::{
+    ecs::{entity::EntityMap, world::World},
+    transform::components::Parent,
+};
 use parking_lot::RwLockReadGuard;
 use serde::{
     de::{self, DeserializeSeed, EnumAccess, MapAccess, VariantAccess, Visitor},
@@ -10,10 +13,10 @@ use serde::{
 use crate::{
     registry::{
         ComponentDescriptor, ComponentDescriptorRegistry, PrefabDescriptor,
-        PrefabDescriptorRegistry, PrefabMapEntitiesRegistry, PrefabMapEntitiesRegistryInner,
+        PrefabDescriptorRegistry, PrefabEntitiesMapperRegistry, PrefabEntityMapperRegistryInner,
         RegistryInner,
     },
-    BoxedPrefabData, Prefab,
+    BoxedPrefabData, Prefab, PrefabMissingTag,
 };
 
 mod component;
@@ -82,7 +85,7 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabDataDeserializer {
 
 struct PrefabBody<'a> {
     descriptor: PrefabDescriptor,
-    entity_mapper: &'a RwLockReadGuard<'a, PrefabMapEntitiesRegistryInner>,
+    entity_mapper: &'a RwLockReadGuard<'a, PrefabEntityMapperRegistryInner>,
     component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
     prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
 }
@@ -152,10 +155,35 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             }
         }
 
-        // Map entities from source file to prefab space
-        for map in &entity_mapper.0 {
-            (map)(&mut world, &source_to_prefab);
+        // Spawn blank nested prefab instances
+        for nested in &mut nested_prefabs {
+            let blank = world.spawn();
+            let blank_entity = blank.id();
+            source_to_prefab.insert(nested.id, blank_entity);
+
+            // Map prefab entity id from source to prefab space (required for the next step)
+            nested.id = blank_entity;
+
+            blank.insert(nested.source.clone());
+            blank.insert(PrefabMissingTag);
+
+            let prefab_data = &nested.data.0;
+            // Insert the PrefabData (down casted) in the root Entity so it can be available during runtime
+            prefab_data.copy_to_instance(&mut blank);
         }
+
+        // Parent all nested prefabs (when needed)
+        for nested in &mut nested_prefabs {
+            if let Some(source_parent) = nested.parent {
+                let prefab_parent = source_to_prefab
+                    .get(source_parent)
+                    .map_err(de::Error::custom)?;
+                world.entity_mut(nested.id).insert(Parent(prefab_parent));
+            }
+        }
+
+        // Map entities from source file to prefab space
+        entity_mapper.map_entities(&mut world, &source_to_prefab);
 
         let defaults = defaults.unwrap_or_else(|| (data_seed.descriptor.default)());
         let transform = transform.unwrap_or_default();
@@ -163,7 +191,6 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             defaults,
             transform,
             world,
-            nested_prefabs,
         })
     }
 }
@@ -173,14 +200,14 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
 const PREFAB_FIELDS: &'static [&'static str] = &["defaults", "scene"];
 
 pub struct PrefabDeserializer<'a> {
-    entity_mapper: RwLockReadGuard<'a, PrefabMapEntitiesRegistryInner>,
+    entity_mapper: RwLockReadGuard<'a, PrefabEntityMapperRegistryInner>,
     component_registry: RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
     prefab_registry: RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
 }
 
 impl<'a> PrefabDeserializer<'a> {
     pub fn new(
-        entity_mapper: &'a PrefabMapEntitiesRegistry,
+        entity_mapper: &'a PrefabEntitiesMapperRegistry,
         component_registry: &'a ComponentDescriptorRegistry,
         prefab_registry: &'a PrefabDescriptorRegistry,
     ) -> Self {
