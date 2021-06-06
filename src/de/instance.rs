@@ -99,7 +99,7 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
         }
 
         let mut id = None;
-        let source = None;
+        let mut source = None;
         let mut transform = None;
         let mut parent = None;
         let mut data = None;
@@ -119,10 +119,7 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
                     if source.is_some() {
                         return Err(de::Error::duplicate_field("source"));
                     }
-                    // TODO: Handles aren't supported yet
-                    // source = Some(access.next_value()?);
-                    access.next_value::<de::IgnoredAny>()?;
-                    transform = Some(Default::default());
+                    source = Some(access.next_value()?);
                 }
                 Field::Transform => {
                     if transform.is_some() {
@@ -146,8 +143,7 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
         }
 
         let id = id.ok_or(de::Error::missing_field("id"))?;
-        // TODO: Obligatory field, we just can't load assets yet :(
-        let source = source.unwrap_or_default();
+        let source = source.ok_or(de::Error::missing_field("source"))?;
         let parent = parent.unwrap_or_default();
         let transform = transform.unwrap_or_default();
         // TODO: Read defaults from the Parent prefab

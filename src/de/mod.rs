@@ -137,12 +137,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
                     if transform.is_some() {
                         return Err(de::Error::duplicate_field("defaults"));
                     }
-
-                    // TODO: Transform doesn't implement `Deserialize` nor `Serialize`
-                    // transform = Some(access.next_value()?);
-
-                    access.next_value::<de::IgnoredAny>()?;
-                    transform = Some(Default::default());
+                    transform = Some(access.next_value()?);
                 }
                 Field::Scene => {
                     access.next_value_seed(IdentifiedInstanceSeq {
