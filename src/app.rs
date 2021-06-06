@@ -22,20 +22,28 @@ use crate::{
 /// Adds prefab functionality to bevy
 #[derive(Default, Debug)]
 pub struct PrefabPlugin {
-    without_builtin_components: bool,
     primitives_prefabs: bool,
+    objects_prefabs: bool,
 }
 
 impl PrefabPlugin {
-    /// **DON'T** add bevy built-in components [`Parent`], [`Transform`], [`Handle<Mesh>`] and so on ...
-    pub fn without_builtin_components(mut self) -> Self {
-        self.without_builtin_components = true;
-        self
+    /// Adds all built in prefabs
+    pub fn with_all_builtin_prefabs(self) -> Self {
+        Self {
+            primitives_prefabs: true,
+            objects_prefabs: true,
+        }
     }
 
     /// Add primitive prefabs such as: `CubePrefab`, `CylinderPrefab` and so on
     pub fn with_primitives_prefabs(mut self) -> Self {
         self.primitives_prefabs = true;
+        self
+    }
+
+    /// Add primitive prefabs such as: `StaticMeshPrefab`, `PointLightPrefab`, `PerspectiveCameraPrefab` and so on
+    pub fn with_objects_prefabs(mut self) -> Self {
+        self.objects_prefabs = true;
         self
     }
 }
@@ -77,25 +85,25 @@ impl Plugin for PrefabPlugin {
                 prefab_managing_system.exclusive_system(),
             );
 
+        // register bevy default components
+        app_builder
+            .register_prefab_mappable_component::<Parent>()
+            .register_prefab_component::<Transform>()
+            .register_prefab_component::<MainPass>()
+            .register_prefab_component::<Draw>()
+            .register_prefab_component::<Visible>()
+            .register_prefab_component::<RenderPipelines>()
+            .register_prefab_component::<PointLight>()
+            .register_prefab_component::<DirectionalLight>()
+            .register_prefab_component_aliased::<Handle<Mesh>>("Mesh".to_string())
+            .register_prefab_component::<Handle<StandardMaterial>>();
+
         if self.primitives_prefabs {
-            warn!("`PrefabPlugin` primitive prefabs aren't implemented yet");
+            crate::builtin::primitives::register_primitives_prefabs(app_builder);
         }
 
-        // register bevy default components
-        if self.without_builtin_components {
-            app_builder
-                .register_prefab_mappable_component::<Parent>()
-                .register_prefab_component::<Transform>()
-                .register_prefab_component::<MainPass>()
-                .register_prefab_component::<Draw>()
-                .register_prefab_component::<Visible>()
-                .register_prefab_component::<RenderPipelines>()
-                .register_prefab_component::<PointLight>()
-                .register_prefab_component::<DirectionalLight>()
-                .register_prefab_component_aliased::<Handle<Mesh>>("Mesh".to_string())
-                .register_prefab_component_aliased::<Handle<StandardMaterial>>(
-                    "StandardMaterial".to_string(),
-                );
+        if self.objects_prefabs {
+            crate::builtin::objects::register_objects_prefabs(app_builder);
         }
     }
 }

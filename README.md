@@ -61,7 +61,7 @@ Prefab (
 
 ## TODO
 
-- built-in prefab primitives
+- many prefab aliases
 - prefab components
 - tests
 - remove entities if prefab fails to load
@@ -81,10 +81,9 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(
             PrefabPlugin::default()
-                // disable bevy built in components (not recommended)
-                // .without_builtin_components()
-                // optional pre built-prefabs (recommended)
+                // optional pre built-prefabs
                 .with_primitives_prefabs()
+                .with_object_prefabs()
         )
         // Yours configs here ...
         .run();

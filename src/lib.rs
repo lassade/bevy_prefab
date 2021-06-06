@@ -48,6 +48,7 @@ use bevy::{
 use serde::{Deserialize, Serialize};
 
 pub mod app;
+pub mod builtin;
 pub mod data;
 pub mod de;
 pub mod loader;
