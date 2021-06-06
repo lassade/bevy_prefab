@@ -8,6 +8,7 @@ use bevy::{
 use serde::Deserialize;
 
 use crate::{
+    loader::PrefabLoader,
     manager::prefab_managing_system,
     registry::{
         shorten_name, ComponentDescriptorRegistry, ComponentEntityMapperRegistry,
@@ -38,14 +39,18 @@ impl PrefabPlugin {
 }
 
 impl Plugin for PrefabPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app_builder: &mut AppBuilder) {
         // insert registry resources
-        app.insert_resource(PrefabDescriptorRegistry::default())
+        app_builder
+            .insert_resource(PrefabDescriptorRegistry::default())
             .insert_resource(ComponentDescriptorRegistry::default())
             .insert_resource(ComponentEntityMapperRegistry::default());
 
+        app_builder.add_asset_loader(PrefabLoader::from_world(&mut app_builder.app.world));
+
         // add prefab manager system
-        app.add_startup_system(prefab_managing_system.exclusive_system())
+        app_builder
+            .add_startup_system(prefab_managing_system.exclusive_system())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 prefab_managing_system.exclusive_system(),
@@ -57,7 +62,8 @@ impl Plugin for PrefabPlugin {
 
         // register bevy default components
         if self.without_builtin_components {
-            app.register_prefab_mappable_component::<Parent>()
+            app_builder
+                .register_prefab_mappable_component::<Parent>()
                 .register_prefab_component::<Transform>()
                 .register_prefab_component::<MainPass>()
                 .register_prefab_component::<Draw>()
@@ -119,7 +125,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
             .app
             .world
             .get_resource_mut::<ComponentEntityMapperRegistry>()
-            .expect("`App` doesn't have the resource `ComponentEntityMapperRegistry`");
+            .unwrap();
 
         component_entity_mapper_registry.register::<C>();
 
@@ -134,7 +140,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
             .app
             .world
             .get_resource_mut::<ComponentDescriptorRegistry>()
-            .expect("`App` doesn't have the resource `ComponentDescriptorRegistry`");
+            .unwrap();
 
         component_registry
             .register_aliased::<C>(alias)
@@ -151,7 +157,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
             .app
             .world
             .get_resource_mut::<PrefabDescriptorRegistry>()
-            .expect("`App` doesn't have a the resource `PrefabDescriptorRegistry`");
+            .unwrap();
 
         prefab_registry
             .register_aliased::<D>(alias)

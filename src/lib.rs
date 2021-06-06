@@ -50,6 +50,7 @@ use serde::{Deserialize, Serialize};
 pub mod app;
 pub mod data;
 pub mod de;
+pub mod loader;
 pub mod manager;
 pub mod registry;
 

@@ -55,14 +55,14 @@ Prefab (
 
 ## TODO
 
-- loader
 - id validation
 - optional id deserialization (if you don't want to refer to this particular entity just omit the id field)
 - prefab components
 - prefab component should be able to refer to their children
 - fully procedural prefabs (no need for a source prefab file)
 - tests
-- better commands instancing api ()
+- remove entities if prefab fails to load
+- better commands (instancing api)
 - serialization
 - uuid support for prefab variants and component names
 - embedded assets

@@ -80,7 +80,9 @@ fn prefab_spawner(
                 let mut instance = world.entity_mut(instance_entity);
 
                 // Map entities components to instance space
-                component_mapper.map_entity_components(&mut instance, &prefab_to_instance);
+                component_mapper
+                    .map_entity_components(&mut instance, &prefab_to_instance)
+                    .unwrap();
 
                 // Parent all root prefab entities under the instance root
                 if instance.get::<Parent>().is_none() {

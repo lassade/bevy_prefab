@@ -1,13 +1,7 @@
 use std::{any::TypeId, sync::Arc};
 
 use anyhow::Result;
-use bevy::{
-    ecs::{
-        entity::EntityMap,
-        world::{EntityMut, World},
-    },
-    utils::HashMap,
-};
+use bevy::utils::HashMap;
 use parking_lot::RwLock;
 use thiserror::Error;
 
