@@ -47,12 +47,19 @@ use bevy::{
 };
 use serde::{Deserialize, Serialize};
 
+pub mod app;
 pub mod data;
 pub mod de;
 pub mod manager;
 pub mod registry;
 
-pub use data::{BoxedPrefabData, PrefabData};
+use crate::data::{BoxedPrefabData, PrefabData};
+
+pub mod prelude {
+    pub use crate::app::*;
+    pub use crate::data::{BoxedPrefabData, PrefabData};
+    pub use crate::Prefab;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 

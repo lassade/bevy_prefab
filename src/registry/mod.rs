@@ -12,11 +12,13 @@ use parking_lot::RwLock;
 use thiserror::Error;
 
 mod component;
+mod mapped;
 mod prefab;
 
 ///////////////////////////////////////////////////////////////////////////////
 
 pub use component::*;
+pub use mapped::*;
 pub use prefab::*;
 
 #[derive(Error, Debug)]
@@ -72,7 +74,7 @@ pub struct Registry<T: Send + Sync> {
 }
 
 impl<T: Send + Sync> Registry<T> {
-    pub(crate) fn empty() -> Self {
+    fn empty() -> Self {
         Self {
             lock: Arc::new(RwLock::new(RegistryInner {
                 contents: Default::default(),
@@ -84,52 +86,6 @@ impl<T: Send + Sync> Registry<T> {
 }
 
 impl<T: Send + Sync> Clone for Registry<T> {
-    fn clone(&self) -> Self {
-        Self {
-            lock: self.lock.clone(),
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-pub type MapWorldComponentsFn = fn(&mut World, &EntityMap);
-
-pub type MapEntityComponentsFn = fn(&mut EntityMut, &EntityMap);
-
-#[derive(Default)]
-pub(crate) struct ComponentEntityMapperRegistryInner {
-    world: Vec<MapWorldComponentsFn>,
-    entity: Vec<MapEntityComponentsFn>,
-}
-
-impl ComponentEntityMapperRegistryInner {
-    pub fn map_world_components(&self, world: &mut World, entity_map: &EntityMap) {
-        for map in &self.world {
-            (map)(world, &entity_map);
-        }
-    }
-
-    pub fn map_entity_components(&self, entity: &mut EntityMut, entity_map: &EntityMap) {
-        for map in &self.entity {
-            (map)(entity, &entity_map);
-        }
-    }
-}
-
-pub struct ComponentEntityMapperRegistry {
-    pub(crate) lock: Arc<RwLock<ComponentEntityMapperRegistryInner>>,
-}
-
-impl ComponentEntityMapperRegistry {
-    pub(crate) fn empty() -> Self {
-        Self {
-            lock: Arc::new(RwLock::new(Default::default())),
-        }
-    }
-}
-
-impl Clone for ComponentEntityMapperRegistry {
     fn clone(&self) -> Self {
         Self {
             lock: self.lock.clone(),

@@ -57,11 +57,24 @@ Prefab (
 
 - loader
 - id validation
-- default unique id
-- reference instances in prefab data
+- optional id deserialization (if you don't want to refer to this particular entity just omit the id field)
+- prefab components
+- prefab component should be able to refer to their children
 - fully procedural prefabs (no need for a source prefab file)
 - tests
 - better commands instancing api ()
 - serialization
 - uuid support for prefab variants and component names
 - embedded assets
+
+## Usage
+
+```
+
+```
+
+## Notes
+
+- prefab data is a component added to the prefab root entity so you can added it to `app.register_prefab_mapped_component<MyPrefabData>()`
+to be able to refer to other entities inside the prefab space, keep in mind that prefab instances can't reference
+their children for now
