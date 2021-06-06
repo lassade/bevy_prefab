@@ -62,6 +62,7 @@ Prefab (
 
 ## TODO
 
+- bug: it's impossible to register any prefab or prefab_component!
 - tests
 - query about prefab loading status
 - many prefab aliases
@@ -87,7 +88,6 @@ fn main() {
                 .with_primitives_prefabs()
                 .with_object_prefabs()
         )
-        // Yours configs here ...
         .run();
 }
 ```
