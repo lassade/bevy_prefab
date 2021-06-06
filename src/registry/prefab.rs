@@ -4,7 +4,7 @@ use anyhow::Result;
 use bevy::prelude::{Entity, World};
 use serde::Deserialize;
 
-use crate::{BoxedPrefabData, PrefabData};
+use crate::{data::BlankPrefab, BoxedPrefabData, PrefabData};
 
 use super::{shorten_name, Registry};
 
@@ -31,7 +31,7 @@ impl Default for PrefabDescriptorRegistry {
     fn default() -> Self {
         let registry = Self::empty();
         registry
-            .register_aliased::<()>("Prefab".to_string())
+            .register_aliased::<BlankPrefab>("Prefab".to_string())
             .unwrap();
         registry
     }

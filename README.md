@@ -56,8 +56,8 @@ Prefab (
 
 ## TODO
 
+- built-in prefab primitives
 - prefab components
-- fully procedural prefabs (no need for a source prefab file)
 - tests
 - remove entities if prefab fails to load
 - better commands (instancing api)

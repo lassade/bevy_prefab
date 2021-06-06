@@ -43,7 +43,7 @@ use bevy::{
     ecs::{entity::Entity, world::World},
     math::{Quat, Vec3},
     prelude::Transform,
-    reflect::{TypeUuid, Uuid},
+    reflect::TypeUuid,
 };
 use serde::{Deserialize, Serialize};
 
@@ -65,37 +65,23 @@ pub mod prelude {
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]
-pub struct PrefabInstance {
+struct PrefabInstance {
     id: Entity,
+    /// Prefab source file, procedural prefabs may not require a source to base it self from
     source: Handle<Prefab>,
-    // Overrides
+    // overrides
     parent: Option<Entity>,
-    transform: PrefabInstanceTransform,
-    // Data feed to construct script
-    data: BoxedPrefabData,
+    transform: PrefabTransformOverride,
+    // data feed to construct script
+    data: Option<BoxedPrefabData>,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
-pub struct PrefabInstanceTransform {
+pub struct PrefabTransformOverride {
     translation: Option<Vec3>,
     rotation: Option<Quat>,
     scale: Option<Vec3>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PrefabVariantId {
-    uuid: Uuid,
-    name: String,
-}
-
-impl Default for PrefabVariantId {
-    fn default() -> Self {
-        Self {
-            uuid: Uuid::default(),
-            name: "Prefab".to_string(),
-        }
-    }
 }
 
 #[derive(Debug, TypeUuid)]

@@ -136,7 +136,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
                 }
                 Field::Transform => {
                     if transform.is_some() {
-                        return Err(de::Error::duplicate_field("defaults"));
+                        return Err(de::Error::duplicate_field("transform"));
                     }
                     transform = Some(access.next_value()?);
                 }
@@ -168,9 +168,10 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
                 PrefabConstruct(construct),
             ));
 
-            let prefab_data = &nested.data.0;
-            // Insert the PrefabData (down casted) in the root Entity so it can be available during runtime
-            prefab_data.copy_to_instance(&mut blank);
+            if let Some(prefab_data) = &nested.data {
+                // Insert the PrefabData (down casted) in the root Entity so it can be available during runtime
+                prefab_data.0.copy_to_instance(&mut blank);
+            }
         }
 
         // Parent all nested prefabs (when needed)

@@ -8,13 +8,15 @@ use bevy::{
 use serde::Deserialize;
 
 use crate::{
+    data::BlankPrefab,
     loader::PrefabLoader,
     manager::prefab_managing_system,
+    prelude::BoxedPrefabData,
     registry::{
         shorten_name, ComponentDescriptorRegistry, ComponentEntityMapperRegistry,
         PrefabDescriptorRegistry,
     },
-    PrefabData,
+    Prefab, PrefabData,
 };
 
 /// Adds prefab functionality to bevy
@@ -40,6 +42,24 @@ impl PrefabPlugin {
 
 impl Plugin for PrefabPlugin {
     fn build(&self, app_builder: &mut AppBuilder) {
+        // register prefab asset
+        app_builder.add_asset::<Prefab>();
+
+        // add empty prefab resource to be the source for any procedural prefabs
+        let mut prefabs = app_builder
+            .app
+            .world
+            .get_resource_mut::<Assets<Prefab>>()
+            .unwrap();
+        prefabs.set_untracked(
+            Handle::<Prefab>::default(),
+            Prefab {
+                defaults: BoxedPrefabData(Box::new(BlankPrefab)),
+                transform: Transform::default(),
+                world: World::default(),
+            },
+        );
+
         // insert registry resources
         app_builder
             .insert_resource(PrefabDescriptorRegistry::default())

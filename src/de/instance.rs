@@ -185,7 +185,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         }
 
         let id = id.unwrap_or_else(|| id_validation.generate_unique());
-        let source = source.ok_or(de::Error::missing_field("source"))?;
+        let source = source.unwrap_or_default();
         let parent = parent.unwrap_or_default();
         let transform = transform.unwrap_or_default();
         // TODO: Read defaults from the Parent prefab
@@ -206,7 +206,7 @@ struct PrefabInstanceData {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceData {
-    type Value = BoxedPrefabData;
+    type Value = Option<BoxedPrefabData>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -214,7 +214,8 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceData {
     {
         let PrefabInstanceData { descriptor } = self;
         let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
-        (descriptor.de)(&mut deserializer).map_err(de::Error::custom)
+        let data = (descriptor.de)(&mut deserializer).map_err(de::Error::custom)?;
+        Ok(Some(data))
     }
 }
 
@@ -424,7 +425,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
 
 #[cfg(test)]
 mod tests {
-    use bevy::ecs::world::{EntityMut, World};
+    use bevy::ecs::world::World;
     use serde::Deserialize;
 
     use super::*;
@@ -446,10 +447,6 @@ mod tests {
             let _ = world;
             let _ = root;
             unimplemented!("blanket implementation")
-        }
-
-        fn copy_to_instance(&self, instance: &mut EntityMut) {
-            instance.insert(self.clone());
         }
     }
 

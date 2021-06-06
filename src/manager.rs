@@ -6,7 +6,7 @@ use crate::{
         ComponentDescriptor, ComponentDescriptorRegistry, ComponentEntityMapperRegistry,
         ComponentEntityMapperRegistryInner, RegistryInner,
     },
-    Prefab, PrefabConstruct, PrefabInstanceTransform, PrefabNotInstantiatedTag,
+    Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTransformOverride,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -95,9 +95,12 @@ fn prefab_spawner(
             // Clear not instantiate tag
             root.remove::<PrefabNotInstantiatedTag>();
 
+            // Use prefab source default if no data is present
+            prefab.defaults.0.copy_to_instance(&mut root);
+
             // Override prefab transformations with instance's transform
             let mut transform = prefab.transform.clone();
-            if let Some(transform_overrides) = root.remove::<PrefabInstanceTransform>() {
+            if let Some(transform_overrides) = root.remove::<PrefabTransformOverride>() {
                 if let Some(translation) = transform_overrides.translation {
                     transform.translation = translation;
                 }
