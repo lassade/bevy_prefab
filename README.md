@@ -62,7 +62,6 @@ Prefab (
 
 ## TODO
 
-- lock less api
 - tests
 - query about prefab loading status
 - many prefab aliases
