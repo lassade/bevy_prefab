@@ -1,11 +1,15 @@
 use std::fmt;
 
 use anyhow::Result;
-use bevy::ecs::{
-    entity::{Entity, EntityMap},
-    world::World,
+use bevy::{
+    ecs::{
+        entity::{Entity, EntityMap},
+        world::World,
+    },
+    utils::HashSet,
 };
 use parking_lot::RwLockReadGuard;
+use rand::{prelude::ThreadRng, RngCore};
 use serde::{
     de::{self, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
     Deserialize, Deserializer,
@@ -16,6 +20,35 @@ use crate::{
     registry::{ComponentDescriptor, PrefabDescriptor, RegistryInner},
     BoxedPrefabData, PrefabInstance,
 };
+
+///////////////////////////////////////////////////////////////////////////////
+
+struct IdValidation {
+    random: ThreadRng,
+    collection: HashSet<Entity>,
+}
+
+impl IdValidation {
+    pub fn empty() -> Self {
+        Self {
+            random: rand::thread_rng(),
+            collection: HashSet::default(),
+        }
+    }
+
+    pub fn validate(&mut self, id: Entity) -> bool {
+        self.collection.insert(id)
+    }
+
+    pub fn generate_unique(&mut self) -> Entity {
+        loop {
+            let id = Entity::new(self.random.next_u32());
+            if self.validate(id) {
+                return id;
+            }
+        }
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -73,11 +106,12 @@ impl<'a, 'de> Visitor<'de> for InstanceIdentifier<'a> {
 const PREFAB_INSTANCE_FIELDS: &'static [&'static str] =
     &["id", "source", "transform", "parent", "data"];
 
-struct PrefabInstanceDeserializer {
+struct PrefabInstanceDeserializer<'a> {
+    id_validation: &'a mut IdValidation,
     descriptor: PrefabDescriptor,
 }
 
-impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
+impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
     type Value = PrefabInstance;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -104,7 +138,10 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
         let mut parent = None;
         let mut data = None;
 
-        let PrefabInstanceDeserializer { descriptor } = self;
+        let PrefabInstanceDeserializer {
+            id_validation,
+            descriptor,
+        } = self;
         let data_seed = PrefabInstanceData { descriptor };
 
         while let Some(key) = access.next_key()? {
@@ -113,7 +150,12 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
                     }
-                    id = Some(access.next_value()?);
+                    let temp = access.next_value()?;
+                    if id_validation.validate(temp) {
+                        id = Some(temp);
+                    } else {
+                        return Err(de::Error::custom(format!("conflicting id `{}`", temp.id())));
+                    }
                 }
                 Field::Source => {
                     if source.is_some() {
@@ -142,7 +184,7 @@ impl<'de> Visitor<'de> for PrefabInstanceDeserializer {
             }
         }
 
-        let id = id.ok_or(de::Error::missing_field("id"))?;
+        let id = id.unwrap_or_else(|| id_validation.generate_unique());
         let source = source.ok_or(de::Error::missing_field("source"))?;
         let parent = parent.unwrap_or_default();
         let transform = transform.unwrap_or_default();
@@ -181,6 +223,7 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceData {
 const ENTITY_INSTANCE_FIELDS: &'static [&'static str] = &["id", "components"];
 
 struct EntityInstanceDeserializer<'a> {
+    id_validation: &'a mut IdValidation,
     world: &'a mut World,
     source_to_prefab: &'a mut EntityMap,
     component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
@@ -205,6 +248,7 @@ impl<'a, 'de> Visitor<'de> for EntityInstanceDeserializer<'a> {
         }
 
         let EntityInstanceDeserializer {
+            id_validation,
             world,
             source_to_prefab,
             component_registry,
@@ -219,7 +263,12 @@ impl<'a, 'de> Visitor<'de> for EntityInstanceDeserializer<'a> {
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
                     }
-                    id = Some(access.next_value::<Entity>()?);
+                    let temp = access.next_value()?;
+                    if id_validation.validate(temp) {
+                        id = Some(temp);
+                    } else {
+                        return Err(de::Error::custom(format!("conflicting id `{}`", temp.id())));
+                    }
                 }
                 Field::Components => access.next_value_seed(IdentifiedComponentSeq {
                     entity_builder: &mut entity_builder,
@@ -228,7 +277,7 @@ impl<'a, 'de> Visitor<'de> for EntityInstanceDeserializer<'a> {
             }
         }
 
-        let id = id.ok_or(de::Error::missing_field("id"))?;
+        let id = id.unwrap_or_else(|| id_validation.generate_unique());
         source_to_prefab.insert(id, entity_builder.id());
 
         Ok(())
@@ -249,6 +298,7 @@ impl<'a, 'de> DeserializeSeed<'de> for EntityInstanceDeserializer<'a> {
 ///////////////////////////////////////////////////////////////////////////////
 
 struct IdentifiedInstance<'a> {
+    id_validation: &'a mut IdValidation,
     source_to_prefab: &'a mut EntityMap,
     world: &'a mut World,
     nested_prefabs: &'a mut Vec<PrefabInstance>,
@@ -280,6 +330,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
         A: EnumAccess<'de>,
     {
         let IdentifiedInstance {
+            id_validation,
             source_to_prefab,
             world,
             nested_prefabs,
@@ -293,6 +344,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
             Identifier::Entity => variant.struct_variant(
                 ENTITY_INSTANCE_FIELDS,
                 EntityInstanceDeserializer {
+                    id_validation,
                     world,
                     source_to_prefab,
                     component_registry,
@@ -301,7 +353,10 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
             Identifier::Prefab(descriptor) => {
                 nested_prefabs.push(variant.struct_variant(
                     PREFAB_INSTANCE_FIELDS,
-                    PrefabInstanceDeserializer { descriptor },
+                    PrefabInstanceDeserializer {
+                        id_validation,
+                        descriptor,
+                    },
                 )?);
                 Ok(())
             }
@@ -350,7 +405,10 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
             prefab_registry,
         } = self;
 
+        let id_validation = &mut IdValidation::empty();
+
         while let Some(_) = seq.next_element_seed(IdentifiedInstance {
+            id_validation,
             source_to_prefab,
             world,
             nested_prefabs,
@@ -403,19 +461,17 @@ mod tests {
         let prefab_registry = PrefabDescriptorRegistry::default();
         prefab_registry.register::<Lamp>().unwrap();
 
+        let id_validation = &mut IdValidation::empty();
         let mut source_to_prefab = EntityMap::default();
         let mut world = World::default();
         let mut nested_prefabs = vec![];
 
         let input = r#"Lamp(
             id: 95649,
-            //source: (
-            //    uuid: "76500818-9b39-4655-9d32-8f1ac0ecbb41",
-            //    path: "prefabs/lamp.prefab",
-            //),
+            source: External("prefabs/lamp.prefab"),
             transform: (
-                position: (0, 0, 0),
-                rotation: (0, 0, 0, 1),
+                position: Some((0, 0, 0)),
+                rotation: Some((0, 0, 0, 1)),
                 scale: None,
             ),
             parent: Some(67234),
@@ -427,6 +483,7 @@ mod tests {
 
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let visitor = IdentifiedInstance {
+            id_validation,
             source_to_prefab: &mut source_to_prefab,
             world: &mut world,
             nested_prefabs: &mut nested_prefabs,
@@ -436,7 +493,6 @@ mod tests {
         visitor.deserialize(&mut deserializer).unwrap();
 
         let input = r#"Entity(
-            id: 95649,
             components: [
                 Name(("Root")),
             ],
@@ -444,6 +500,7 @@ mod tests {
 
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let visitor = IdentifiedInstance {
+            id_validation,
             source_to_prefab: &mut source_to_prefab,
             world: &mut world,
             nested_prefabs: &mut nested_prefabs,

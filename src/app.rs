@@ -46,7 +46,8 @@ impl Plugin for PrefabPlugin {
             .insert_resource(ComponentDescriptorRegistry::default())
             .insert_resource(ComponentEntityMapperRegistry::default());
 
-        app_builder.add_asset_loader(PrefabLoader::from_world(&mut app_builder.app.world));
+        let loader = PrefabLoader::from_world(&mut app_builder.app.world);
+        app_builder.add_asset_loader(loader);
 
         // add prefab manager system
         app_builder

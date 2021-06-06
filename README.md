@@ -32,6 +32,7 @@ Prefab (
         ),
         // prefab variant instance
         Lamp (
+            // its possible to omit id's if no-one is referring to this instance
             id: 95649,
             // prefab kind or implementation (what kind of lamp this instance is?)
             source: External("prefabs/flashlight.prefab"),
@@ -55,10 +56,7 @@ Prefab (
 
 ## TODO
 
-- id validation
-- optional id deserialization (if you don't want to refer to this particular entity just omit the id field)
 - prefab components
-- prefab component should be able to refer to their children
 - fully procedural prefabs (no need for a source prefab file)
 - tests
 - remove entities if prefab fails to load
