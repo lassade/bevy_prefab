@@ -8,7 +8,6 @@ use bevy::{
     },
     utils::HashSet,
 };
-use parking_lot::RwLockReadGuard;
 use rand::{prelude::ThreadRng, RngCore};
 use serde::{
     de::{self, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
@@ -17,7 +16,7 @@ use serde::{
 
 use crate::{
     de::component::IdentifiedComponentSeq,
-    registry::{ComponentDescriptor, PrefabDescriptor, RegistryInner},
+    registry::{ComponentDescriptorRegistry, PrefabDescriptor, PrefabDescriptorRegistry},
     BoxedPrefabData, PrefabInstance,
 };
 
@@ -58,7 +57,7 @@ enum Identifier {
 }
 
 struct InstanceIdentifier<'a> {
-    prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
+    prefab_registry: &'a PrefabDescriptorRegistry,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for InstanceIdentifier<'a> {
@@ -227,7 +226,7 @@ struct EntityInstanceDeserializer<'a> {
     id_validation: &'a mut IdValidation,
     world: &'a mut World,
     source_to_prefab: &'a mut EntityMap,
-    component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
+    component_registry: &'a ComponentDescriptorRegistry,
 }
 
 impl<'a, 'de> Visitor<'de> for EntityInstanceDeserializer<'a> {
@@ -303,8 +302,8 @@ struct IdentifiedInstance<'a> {
     source_to_prefab: &'a mut EntityMap,
     world: &'a mut World,
     nested_prefabs: &'a mut Vec<PrefabInstance>,
-    component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
-    prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
+    component_registry: &'a ComponentDescriptorRegistry,
+    prefab_registry: &'a PrefabDescriptorRegistry,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for IdentifiedInstance<'a> {
@@ -371,8 +370,8 @@ pub(crate) struct IdentifiedInstanceSeq<'a> {
     pub source_to_prefab: &'a mut EntityMap,
     pub world: &'a mut World,
     pub nested_prefabs: &'a mut Vec<PrefabInstance>,
-    pub component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
-    pub prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
+    pub component_registry: &'a ComponentDescriptorRegistry,
+    pub prefab_registry: &'a PrefabDescriptorRegistry,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for IdentifiedInstanceSeq<'a> {
@@ -452,11 +451,15 @@ mod tests {
 
     #[test]
     fn read() {
-        let component_registry = ComponentDescriptorRegistry::default();
-        component_registry.register::<Name>().unwrap();
+        let mut component_registry = ComponentDescriptorRegistry::default();
+        component_registry
+            .register_aliased::<Name>("Name".to_string())
+            .unwrap();
 
-        let prefab_registry = PrefabDescriptorRegistry::default();
-        prefab_registry.register::<Lamp>().unwrap();
+        let mut prefab_registry = PrefabDescriptorRegistry::default();
+        prefab_registry
+            .register_aliased::<Lamp>("Lamp".to_string())
+            .unwrap();
 
         let id_validation = &mut IdValidation::empty();
         let mut source_to_prefab = EntityMap::default();
@@ -484,8 +487,8 @@ mod tests {
             source_to_prefab: &mut source_to_prefab,
             world: &mut world,
             nested_prefabs: &mut nested_prefabs,
-            component_registry: &component_registry.lock.read(),
-            prefab_registry: &prefab_registry.lock.read(),
+            component_registry: &component_registry,
+            prefab_registry: &prefab_registry,
         };
         visitor.deserialize(&mut deserializer).unwrap();
 
@@ -501,8 +504,8 @@ mod tests {
             source_to_prefab: &mut source_to_prefab,
             world: &mut world,
             nested_prefabs: &mut nested_prefabs,
-            component_registry: &component_registry.lock.read(),
-            prefab_registry: &prefab_registry.lock.read(),
+            component_registry: &component_registry,
+            prefab_registry: &prefab_registry,
         };
         visitor.deserialize(&mut deserializer).unwrap();
     }

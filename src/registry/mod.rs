@@ -1,8 +1,7 @@
-use std::{any::TypeId, sync::Arc};
+use std::any::TypeId;
 
 use anyhow::Result;
 use bevy::utils::HashMap;
-use parking_lot::RwLock;
 use thiserror::Error;
 
 mod component;
@@ -23,13 +22,21 @@ pub enum RegistryError {
     TypeAlreadyRegistered(&'static str),
 }
 
-pub(crate) struct RegistryInner<T> {
+pub(crate) struct Registry<T> {
     contents: Vec<T>,
     named: HashMap<String, usize>,
     typed: HashMap<TypeId, usize>,
 }
 
-impl<T> RegistryInner<T> {
+impl<T> Registry<T> {
+    fn empty() -> Self {
+        Self {
+            contents: Default::default(),
+            named: Default::default(),
+            typed: Default::default(),
+        }
+    }
+
     pub fn find_by_name(&self, name: &str) -> Option<&T> {
         self.named.get(name).and_then(|i| self.contents.get(*i))
     }
@@ -59,30 +66,6 @@ impl<T> RegistryInner<T> {
                 id.insert(i);
                 Ok(())
             }
-        }
-    }
-}
-
-pub struct Registry<T: Send + Sync> {
-    pub(crate) lock: Arc<RwLock<RegistryInner<T>>>,
-}
-
-impl<T: Send + Sync> Registry<T> {
-    fn empty() -> Self {
-        Self {
-            lock: Arc::new(RwLock::new(RegistryInner {
-                contents: Default::default(),
-                named: Default::default(),
-                typed: Default::default(),
-            })),
-        }
-    }
-}
-
-impl<T: Send + Sync> Clone for Registry<T> {
-    fn clone(&self) -> Self {
-        Self {
-            lock: self.lock.clone(),
         }
     }
 }

@@ -2,18 +2,17 @@ use std::fmt;
 
 use anyhow::Result;
 use bevy::ecs::world::EntityMut;
-use parking_lot::RwLockReadGuard;
 use serde::{
     de::{self, DeserializeSeed, EnumAccess, SeqAccess, VariantAccess, Visitor},
     Deserializer,
 };
 
-use crate::registry::{ComponentDescriptor, RegistryInner};
+use crate::registry::{ComponentDescriptor, ComponentDescriptorRegistry};
 
 ///////////////////////////////////////////////////////////////////////////////
 
 struct ComponentIdentifier<'a> {
-    component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
+    component_registry: &'a ComponentDescriptorRegistry,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for ComponentIdentifier<'a> {
@@ -73,7 +72,7 @@ impl<'a, 'w, 'de> DeserializeSeed<'de> for ComponentData<'a, 'w> {
 
 struct IdentifiedComponent<'a, 'w> {
     entity_builder: &'a mut EntityMut<'w>,
-    component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
+    component_registry: &'a ComponentDescriptorRegistry,
 }
 
 impl<'a, 'w, 'de> DeserializeSeed<'de> for IdentifiedComponent<'a, 'w> {
@@ -118,7 +117,7 @@ impl<'a, 'w, 'de> Visitor<'de> for IdentifiedComponent<'a, 'w> {
 
 pub(crate) struct IdentifiedComponentSeq<'a, 'w> {
     pub entity_builder: &'a mut EntityMut<'w>,
-    pub component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
+    pub component_registry: &'a ComponentDescriptorRegistry,
 }
 
 impl<'a, 'w, 'de> DeserializeSeed<'de> for IdentifiedComponentSeq<'a, 'w> {
@@ -173,7 +172,7 @@ mod tests {
 
     #[test]
     fn read() {
-        let component_registry = ComponentDescriptorRegistry::default();
+        let mut component_registry = ComponentDescriptorRegistry::default();
         component_registry
             .register_aliased::<Name>("Name".to_string())
             .unwrap();
@@ -185,7 +184,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let visitor = IdentifiedComponent {
             entity_builder: &mut entity_builder,
-            component_registry: &component_registry.lock.read(),
+            component_registry: &component_registry,
         };
         visitor.deserialize(&mut deserializer).unwrap();
 

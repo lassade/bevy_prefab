@@ -9,7 +9,7 @@ use bevy::ecs::{
 };
 use serde::Deserialize;
 
-use super::{shorten_name, Registry};
+use super::Registry;
 
 pub(crate) type ComponentDeserializerFn =
     fn(&mut dyn erased_serde::Deserializer, &mut EntityMut) -> Result<()>;
@@ -22,7 +22,7 @@ pub struct ComponentDescriptor {
     pub(crate) copy: ComponentCopyFn,
 }
 
-pub type ComponentDescriptorRegistry = Registry<ComponentDescriptor>;
+pub(crate) type ComponentDescriptorRegistry = Registry<ComponentDescriptor>;
 
 impl Default for ComponentDescriptorRegistry {
     #[inline(always)]
@@ -32,14 +32,7 @@ impl Default for ComponentDescriptorRegistry {
 }
 
 impl ComponentDescriptorRegistry {
-    pub fn register<T>(&self) -> Result<()>
-    where
-        T: Component + Clone + for<'de> Deserialize<'de> + 'static,
-    {
-        self.register_aliased::<T>(shorten_name(type_name::<T>()))
-    }
-
-    pub fn register_aliased<T>(&self, alias: String) -> Result<()>
+    pub fn register_aliased<T>(&mut self, alias: String) -> Result<()>
     where
         T: Component + Clone + for<'de> Deserialize<'de> + 'static,
     {
@@ -57,7 +50,8 @@ impl ComponentDescriptorRegistry {
         )
     }
 
-    pub fn register_group_aliased<T>(&self, alias: String) -> Result<()>
+    // TODO: add register functions in PrefabAppBuilder
+    pub fn register_group_aliased<T>(&mut self, alias: String) -> Result<()>
     where
         T: Bundle + Clone + for<'de> Deserialize<'de> + 'static,
     {
@@ -77,7 +71,7 @@ impl ComponentDescriptorRegistry {
 
     #[inline]
     pub fn register_inner<T>(
-        &self,
+        &mut self,
         alias: String,
         de: ComponentDeserializerFn,
         copy: ComponentCopyFn,
@@ -85,8 +79,7 @@ impl ComponentDescriptorRegistry {
     where
         T: for<'de> Deserialize<'de> + 'static,
     {
-        let mut lock = self.lock.write();
         let type_info = (TypeId::of::<T>(), type_name::<T>());
-        lock.register_internal(alias, type_info, || ComponentDescriptor { de, copy })
+        self.register_internal(alias, type_info, || ComponentDescriptor { de, copy })
     }
 }

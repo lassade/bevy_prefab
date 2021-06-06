@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use crate::{data::BlankPrefab, BoxedPrefabData, PrefabData};
 
-use super::{shorten_name, Registry};
+use super::Registry;
 
 pub(crate) type PrefabDeserializerFn =
     fn(&mut dyn erased_serde::Deserializer) -> Result<BoxedPrefabData>;
@@ -25,11 +25,11 @@ pub struct PrefabDescriptor {
 /// Registry of all prefab types available
 ///
 /// **NOTE** The alias `"Prefab"` is registered by default, and uses [`()`] as their [`PrefabData`];
-pub type PrefabDescriptorRegistry = Registry<PrefabDescriptor>;
+pub(crate) type PrefabDescriptorRegistry = Registry<PrefabDescriptor>;
 
 impl Default for PrefabDescriptorRegistry {
     fn default() -> Self {
-        let registry = Self::empty();
+        let mut registry = Self::empty();
         registry
             .register_aliased::<BlankPrefab>("Prefab".to_string())
             .unwrap();
@@ -38,20 +38,12 @@ impl Default for PrefabDescriptorRegistry {
 }
 
 impl PrefabDescriptorRegistry {
-    pub fn register<T>(&self) -> Result<()>
+    pub fn register_aliased<T>(&mut self, alias: String) -> Result<()>
     where
         T: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {
-        self.register_aliased::<T>(shorten_name(type_name::<T>()))
-    }
-
-    pub fn register_aliased<T>(&self, alias: String) -> Result<()>
-    where
-        T: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
-    {
-        let mut lock = self.lock.write();
         let type_info = (TypeId::of::<T>(), type_name::<T>());
-        lock.register_internal(alias, type_info, || PrefabDescriptor {
+        self.register_internal(alias, type_info, || PrefabDescriptor {
             de: |deserializer| {
                 let value: T = Deserialize::deserialize(deserializer)?;
                 Ok(BoxedPrefabData(Box::new(value)))

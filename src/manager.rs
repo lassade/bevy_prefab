@@ -2,10 +2,8 @@ use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashSet};
 use thiserror::Error;
 
 use crate::{
-    registry::{
-        ComponentDescriptor, ComponentDescriptorRegistry, ComponentEntityMapperRegistry,
-        ComponentEntityMapperRegistryInner, RegistryInner,
-    },
+    de::PrefabDeserializer,
+    registry::{ComponentDescriptorRegistry, ComponentEntityMapperRegistry},
     Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTransformOverride,
 };
 
@@ -34,8 +32,8 @@ fn prefab_spawner(
     world: &mut World,
     prefabs: &Assets<Prefab>,
     prefabs_queue: &mut Vec<Instantiate>,
-    component_mapper: &ComponentEntityMapperRegistryInner,
-    component_registry: &RegistryInner<ComponentDescriptor>,
+    component_entity_mapper: &ComponentEntityMapperRegistry,
+    component_registry: &ComponentDescriptorRegistry,
 ) {
     let mut blacklist = HashSet::default();
 
@@ -80,7 +78,7 @@ fn prefab_spawner(
                 let mut instance = world.entity_mut(instance_entity);
 
                 // Map entities components to instance space
-                component_mapper
+                component_entity_mapper
                     .map_entity_components(&mut instance, &prefab_to_instance)
                     .unwrap();
 
@@ -141,20 +139,15 @@ pub fn prefab_managing_system(world: &mut World) {
         return;
     }
 
+    let prefab_registry = world.get_resource::<PrefabDeserializer>().unwrap().clone();
+
     world.resource_scope(|world, prefabs: Mut<Assets<Prefab>>| {
-        world.resource_scope(|world, components: Mut<ComponentDescriptorRegistry>| {
-            world.resource_scope(
-                |world, component_mapper: Mut<ComponentEntityMapperRegistry>| {
-                    //
-                    prefab_spawner(
-                        world,
-                        &*prefabs,
-                        &mut prefabs_queue,
-                        &*component_mapper.lock.read(),
-                        &*components.lock.read(),
-                    )
-                },
-            );
-        });
+        prefab_spawner(
+            world,
+            &*prefabs,
+            &mut prefabs_queue,
+            &prefab_registry.inner.component_entity_mapper,
+            &prefab_registry.inner.component_registry,
+        )
     });
 }

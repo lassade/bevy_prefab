@@ -9,6 +9,7 @@ use serde::Deserialize;
 
 use crate::{
     data::BlankPrefab,
+    de::PrefabDeserializer,
     loader::PrefabLoader,
     manager::prefab_managing_system,
     prelude::BoxedPrefabData,
@@ -74,9 +75,6 @@ impl Plugin for PrefabPlugin {
             .insert_resource(ComponentDescriptorRegistry::default())
             .insert_resource(ComponentEntityMapperRegistry::default());
 
-        let loader = PrefabLoader::from_world(&mut app_builder.app.world);
-        app_builder.add_asset_loader(loader);
-
         // add prefab manager system
         app_builder
             .add_startup_system(prefab_managing_system.exclusive_system())
@@ -105,6 +103,23 @@ impl Plugin for PrefabPlugin {
         if self.objects_prefabs {
             crate::builtin::objects::register_objects_prefabs(app_builder);
         }
+
+        // Commit changes
+        let world = &mut app_builder.app.world;
+        let prefab_registry = world.remove_resource::<PrefabDescriptorRegistry>().unwrap();
+        let component_registry = world
+            .remove_resource::<ComponentDescriptorRegistry>()
+            .unwrap();
+        let component_entity_mapper = world
+            .remove_resource::<ComponentEntityMapperRegistry>()
+            .unwrap();
+        let prefab_deserializer =
+            PrefabDeserializer::new(component_entity_mapper, component_registry, prefab_registry);
+        world.insert_resource(prefab_deserializer);
+
+        // Add loader once PrefabRegistry was created
+        let loader = PrefabLoader::from_world(&mut app_builder.app.world);
+        app_builder.add_asset_loader(loader);
     }
 }
 
@@ -150,7 +165,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
     {
         let builder = self.register_prefab_component_aliased::<C>(alias);
 
-        let component_entity_mapper_registry = builder
+        let mut component_entity_mapper_registry = builder
             .app
             .world
             .get_resource_mut::<ComponentEntityMapperRegistry>()
@@ -165,7 +180,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
     where
         C: Component + Clone + for<'de> Deserialize<'de> + 'static,
     {
-        let component_registry = self
+        let mut component_registry = self
             .app
             .world
             .get_resource_mut::<ComponentDescriptorRegistry>()
@@ -182,7 +197,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
     where
         D: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {
-        let prefab_registry = self
+        let mut prefab_registry = self
             .app
             .world
             .get_resource_mut::<PrefabDescriptorRegistry>()

@@ -5,12 +5,9 @@ use bevy::{
 };
 use serde::de::DeserializeSeed;
 
-use crate::{
-    de::PrefabDeserializer,
-    registry::{
-        ComponentDescriptorRegistry, ComponentEntityMapperRegistry, PrefabDescriptorRegistry,
-    },
-};
+use crate::de::PrefabDeserializer;
+
+///////////////////////////////////////////////////////////////////////////////
 
 pub struct PrefabLoader {
     asset_server: AssetServer,
@@ -20,19 +17,10 @@ pub struct PrefabLoader {
 impl FromWorld for PrefabLoader {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap().clone();
-        let entity_mapper = world
-            .get_resource::<ComponentEntityMapperRegistry>()
-            .unwrap();
-        let component_registry = world.get_resource::<ComponentDescriptorRegistry>().unwrap();
-        let prefab_registry = world.get_resource::<PrefabDescriptorRegistry>().unwrap();
-
+        let prefab_deserializer = world.get_resource::<PrefabDeserializer>().unwrap().clone();
         PrefabLoader {
             asset_server,
-            prefab_deserializer: PrefabDeserializer::new(
-                entity_mapper,
-                component_registry,
-                prefab_registry,
-            ),
+            prefab_deserializer,
         }
     }
 }
@@ -45,12 +33,10 @@ impl AssetLoader for PrefabLoader {
     ) -> BoxedFuture<'a, Result<()>> {
         Box::pin(async move {
             let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
-            let reader = self.prefab_deserializer.read();
-
-            let prefab = self
-                .asset_server
-                .with_asset_refs_serialization(|| reader.deserialize(&mut deserializer))?;
-
+            let prefab = self.asset_server.with_asset_refs_serialization(|| {
+                // ? NOTE: Keep this scope as lean as possible
+                self.prefab_deserializer.deserialize(&mut deserializer)
+            })?;
             load_context.set_default_asset(LoadedAsset::new(prefab));
             Ok(())
         })

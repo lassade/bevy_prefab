@@ -11,7 +11,6 @@ bevy = { git = "https://github.com/lassade/bevy.git", branch = "dev" }
 anyhow = "1.0.40"
 serde = { version = "1.0.126", features = ["derive"] }
 erased-serde = "0.3.15"
-parking_lot = "0.11.1"
 thiserror = "1.0.25"
 ron = "0.6.4"
 rand = "0.8.3"

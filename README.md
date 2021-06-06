@@ -5,6 +5,7 @@
 1. Human readable format
 2. Customizable prefab types
 3. Data driven
+4. Non-blocking asset loading (asset serialization still locks, but that's inherited from bevy)
 
 ## Format Overview
 
@@ -61,9 +62,11 @@ Prefab (
 
 ## TODO
 
+- lock less api
+- tests
+- query about prefab loading status
 - many prefab aliases
 - prefab components
-- tests
 - remove entities if prefab fails to load
 - better commands (instancing api)
 - serialization

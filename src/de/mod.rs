@@ -1,10 +1,9 @@
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 use bevy::{
     ecs::{entity::EntityMap, world::World},
     transform::components::Parent,
 };
-use parking_lot::RwLockReadGuard;
 use serde::{
     de::{self, DeserializeSeed, EnumAccess, MapAccess, VariantAccess, Visitor},
     Deserialize, Deserializer,
@@ -12,9 +11,8 @@ use serde::{
 
 use crate::{
     registry::{
-        ComponentDescriptor, ComponentDescriptorRegistry, ComponentEntityMapperRegistry,
-        ComponentEntityMapperRegistryInner, PrefabDescriptor, PrefabDescriptorRegistry,
-        RegistryInner,
+        ComponentDescriptorRegistry, ComponentEntityMapperRegistry, PrefabDescriptor,
+        PrefabDescriptorRegistry,
     },
     BoxedPrefabData, Prefab, PrefabConstruct, PrefabNotInstantiatedTag,
 };
@@ -27,7 +25,7 @@ use instance::IdentifiedInstanceSeq;
 ///////////////////////////////////////////////////////////////////////////////
 
 struct PrefabVariant<'a> {
-    prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
+    prefab_registry: &'a PrefabDescriptorRegistry,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for PrefabVariant<'a> {
@@ -86,9 +84,9 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabDataDeserializer {
 
 struct PrefabBody<'a> {
     descriptor: PrefabDescriptor,
-    entity_mapper: &'a RwLockReadGuard<'a, ComponentEntityMapperRegistryInner>,
-    component_registry: &'a RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
-    prefab_registry: &'a RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
+    component_entity_mapper: &'a ComponentEntityMapperRegistry,
+    component_registry: &'a ComponentDescriptorRegistry,
+    prefab_registry: &'a PrefabDescriptorRegistry,
 }
 
 impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
@@ -117,7 +115,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
         let mut nested_prefabs = vec![];
 
         let PrefabBody {
-            entity_mapper,
+            component_entity_mapper,
             descriptor,
             component_registry,
             prefab_registry,
@@ -185,7 +183,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
         }
 
         // Map entities from source file to prefab space
-        entity_mapper
+        component_entity_mapper
             .map_world_components(&mut world, &source_to_prefab)
             .map_err(de::Error::custom)?;
 
@@ -203,42 +201,34 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
 
 const PREFAB_FIELDS: &'static [&'static str] = &["defaults", "scene"];
 
-pub struct PrefabDeserializer {
-    entity_mapper: ComponentEntityMapperRegistry,
-    component_registry: ComponentDescriptorRegistry,
-    prefab_registry: PrefabDescriptorRegistry,
+pub(crate) struct PrefabDeserializerInner {
+    pub component_entity_mapper: ComponentEntityMapperRegistry,
+    pub component_registry: ComponentDescriptorRegistry,
+    pub prefab_registry: PrefabDescriptorRegistry,
+}
+
+#[derive(Clone)]
+pub(crate) struct PrefabDeserializer {
+    pub inner: Arc<PrefabDeserializerInner>,
 }
 
 impl PrefabDeserializer {
     pub fn new(
-        entity_mapper: &ComponentEntityMapperRegistry,
-        component_registry: &ComponentDescriptorRegistry,
-        prefab_registry: &PrefabDescriptorRegistry,
+        component_entity_mapper: ComponentEntityMapperRegistry,
+        component_registry: ComponentDescriptorRegistry,
+        prefab_registry: PrefabDescriptorRegistry,
     ) -> Self {
         Self {
-            entity_mapper: entity_mapper.clone(),
-            component_registry: component_registry.clone(),
-            prefab_registry: prefab_registry.clone(),
-        }
-    }
-
-    /// You can have as many read locks as you need
-    pub fn read(&self) -> PrefabDeserializerGuard {
-        PrefabDeserializerGuard {
-            entity_mapper: self.entity_mapper.lock.read(),
-            component_registry: self.component_registry.lock.read(),
-            prefab_registry: self.prefab_registry.lock.read(),
+            inner: Arc::new(PrefabDeserializerInner {
+                component_entity_mapper,
+                component_registry,
+                prefab_registry,
+            }),
         }
     }
 }
 
-pub struct PrefabDeserializerGuard<'a> {
-    entity_mapper: RwLockReadGuard<'a, ComponentEntityMapperRegistryInner>,
-    component_registry: RwLockReadGuard<'a, RegistryInner<ComponentDescriptor>>,
-    prefab_registry: RwLockReadGuard<'a, RegistryInner<PrefabDescriptor>>,
-}
-
-impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabDeserializerGuard<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabDeserializer {
     type Value = Prefab;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -249,7 +239,7 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabDeserializerGuard<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for &'a PrefabDeserializerGuard<'a> {
+impl<'a, 'de> Visitor<'de> for &'a PrefabDeserializer {
     type Value = Prefab;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -260,18 +250,18 @@ impl<'a, 'de> Visitor<'de> for &'a PrefabDeserializerGuard<'a> {
     where
         A: EnumAccess<'de>,
     {
-        let PrefabDeserializerGuard {
-            entity_mapper,
+        let PrefabDeserializerInner {
+            component_entity_mapper,
             component_registry,
             prefab_registry,
-        } = self;
+        } = &*self.inner;
 
         let (descriptor, variant) = data.variant_seed(PrefabVariant { prefab_registry })?;
         variant.struct_variant(
             PREFAB_FIELDS,
             PrefabBody {
                 descriptor,
-                entity_mapper,
+                component_entity_mapper,
                 component_registry,
                 prefab_registry,
             },
