@@ -78,9 +78,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(
             PrefabPlugin::default()
-                // Optional pre built-prefabs
+                // disable bevy built in components (not recommended)
+                // .without_builtin_components()
+                // optional pre built-prefabs (recommended)
                 .with_primitives_prefabs()
         )
+        // Yours configs here ...
         .run();
 }
 ```

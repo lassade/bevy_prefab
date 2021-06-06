@@ -19,11 +19,18 @@ use crate::{
 /// Adds prefab functionality to bevy
 #[derive(Default, Debug)]
 pub struct PrefabPlugin {
+    without_builtin_components: bool,
     primitives_prefabs: bool,
 }
 
 impl PrefabPlugin {
-    /// Add primitive prefabs such as `CubePrefab`, `CylinderPrefab` and so on
+    /// **DON'T** add bevy built-in components [`Parent`], [`Transform`], [`Handle<Mesh>`] and so on ...
+    pub fn without_builtin_components(mut self) -> Self {
+        self.without_builtin_components = true;
+        self
+    }
+
+    /// Add primitive prefabs such as: `CubePrefab`, `CylinderPrefab` and so on
     pub fn with_primitives_prefabs(mut self) -> Self {
         self.primitives_prefabs = true;
         self
@@ -49,18 +56,20 @@ impl Plugin for PrefabPlugin {
         }
 
         // register bevy default components
-        app.register_prefab_mappable_component::<Parent>()
-            .register_prefab_component::<Transform>()
-            .register_prefab_component::<MainPass>()
-            .register_prefab_component::<Draw>()
-            .register_prefab_component::<Visible>()
-            .register_prefab_component::<RenderPipelines>()
-            .register_prefab_component::<PointLight>()
-            .register_prefab_component::<DirectionalLight>()
-            .register_prefab_component_aliased::<Handle<Mesh>>("Mesh".to_string())
-            .register_prefab_component_aliased::<Handle<StandardMaterial>>(
-                "StandardMaterial".to_string(),
-            );
+        if self.without_builtin_components {
+            app.register_prefab_mappable_component::<Parent>()
+                .register_prefab_component::<Transform>()
+                .register_prefab_component::<MainPass>()
+                .register_prefab_component::<Draw>()
+                .register_prefab_component::<Visible>()
+                .register_prefab_component::<RenderPipelines>()
+                .register_prefab_component::<PointLight>()
+                .register_prefab_component::<DirectionalLight>()
+                .register_prefab_component_aliased::<Handle<Mesh>>("Mesh".to_string())
+                .register_prefab_component_aliased::<Handle<StandardMaterial>>(
+                    "StandardMaterial".to_string(),
+                );
+        }
     }
 }
 
