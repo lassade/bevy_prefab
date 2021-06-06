@@ -1,0 +1,39 @@
+Prefab(
+    // list of instances
+    scene: [
+        Entity(
+            components: [
+                Name(("Camera")),
+                Transform(( translation: (0, 0, -10) )),
+            ]
+        ),
+        Cube(
+            source: External("plane.prefab"),
+            data: ( radius: 10 ),
+        ),
+        Lamp(
+            source: External("flashlight.prefab"),
+            transform: (
+                position: Some((0, 2, 2)),
+            ),
+            parent: Some(30),
+            data: (),
+        ),
+        RotatingCube(
+            id: 20,
+            transform: (
+                position: Some((0, 1, 0)),
+            ),
+            data: ( radius: 2, speed: 10 ),
+        ),
+        RotatingCube(
+            id: 30,
+            parent: Some(20),
+            transform: (
+                position: Some((0, 1, 0)),
+                scale: Some((0.2, 0.5, 0.2)),
+            ),
+            data: ( radius: 2, speed: 10 ),
+        ),
+    ],
+)

@@ -1,0 +1,8 @@
+Prefab(
+    transform: (
+        position: Some((0, -1, 0)),
+        scale: Some((1, 0.01, 1)),
+    ),
+    defaults: ( radius: 1 ),
+    scene: [],
+)

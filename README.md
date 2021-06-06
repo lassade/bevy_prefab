@@ -34,13 +34,10 @@ Prefab (
         Lamp (
             id: 95649,
             // prefab kind or implementation (what kind of lamp this instance is?)
-            source: External(
-                uuid: "76500818-9b39-4655-9d32-8f1ac0ecbb41",
-                path: "prefabs/flashlight.prefab",
-            ),
+            source: External("prefabs/flashlight.prefab"),
             // (optional) prefab instance do override out of the box the [`Transform`] and [`Parent`] components
             transform: (
-                position: (0, 0, 0),
+                position: Some((0, 0, 0)),
                 rotation: None,
                 scale: None,
             ),
@@ -48,7 +45,7 @@ Prefab (
             parent: Some(67234),
             // (optional) prefab data used to modify this instance, source prefab defaults are used when missing
             data: (
-                light_color: LinRgba(1, 0, 0, 1),
+                light_color: Rgba( red: 1, green: 0, blue: 0, alpha: 1),
                 light_strength: 2,
             ),
         ),
@@ -58,8 +55,13 @@ Prefab (
 
 ## TODO
 
-1. Testing
-2. Better instancing API
-3. Embedded assets
-4. Serialization
-5. Uuid support for Prefab variants and Component names
+- loader
+- id validation
+- default unique id
+- reference instances in prefab data
+- fully procedural prefabs (no need for a source prefab file)
+- tests
+- better commands instancing api ()
+- serialization
+- uuid support for prefab variants and component names
+- embedded assets
