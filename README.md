@@ -69,8 +69,20 @@ Prefab (
 
 ## Usage
 
-```
+```rust
+use bevy::prelude::*;
+use bevy_prefab::prelude::*;
 
+fn main() {
+    App::build()
+        .add_plugins(DefaultPlugins)
+        .add_plugin(
+            PrefabPlugin::default()
+                // Optional pre built-prefabs
+                .with_primitives_prefabs()
+        )
+        .run();
+}
 ```
 
 ## Notes
