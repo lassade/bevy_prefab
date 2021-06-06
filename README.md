@@ -31,14 +31,14 @@ Prefab (
             ]
         ),
         // prefab variant instance
-        Lamp (
+        LampPrefab (
             // its possible to omit id's if no-one is referring to this instance
             id: 95649,
             // prefab kind or implementation (what kind of lamp this instance is?)
             source: External("prefabs/flashlight.prefab"),
             // (optional) prefab instance do override out of the box the [`Transform`] and [`Parent`] components
             transform: (
-                position: Some((0, 0, 0)),
+                position: Some((0, 2, -2)),
                 rotation: None,
                 scale: None,
             ),
@@ -50,6 +50,11 @@ Prefab (
                 light_strength: 2,
             ),
         ),
+        // fully procedural prefab
+        CubePrefab (
+            transform: ( position: Some((0, 1, 0), ),
+            data: ( radius: 2, )
+        )
     ],
 )
 ```
