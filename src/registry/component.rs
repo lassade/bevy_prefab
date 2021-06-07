@@ -98,6 +98,7 @@ impl ComponentDescriptorRegistry {
         T: 'static,
     {
         let type_info = (TypeId::of::<T>(), type_name::<T>());
-        self.register_internal(alias, type_info, || ComponentDescriptor { de, copy })
+        self.register_internal(alias, type_info, || ComponentDescriptor { de, copy })?;
+        Ok(())
     }
 }

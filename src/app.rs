@@ -3,6 +3,7 @@ use std::any::type_name;
 use bevy::{
     ecs::{component::Component, entity::MapEntities},
     prelude::*,
+    reflect::TypeUuid,
     render::render_graph::base::MainPass,
 };
 use serde::Deserialize;
@@ -168,7 +169,14 @@ pub trait PrefabAppBuilder: Sized {
 
     fn register_prefab<P>(self) -> Self
     where
-        P: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
+        P: PrefabData
+            + TypeUuid
+            + Default
+            + Clone
+            + Send
+            + Sync
+            + for<'de> Deserialize<'de>
+            + 'static,
     {
         self.register_prefab_aliased::<P>(shorten_name(type_name::<P>()))
     }
@@ -183,7 +191,14 @@ pub trait PrefabAppBuilder: Sized {
 
     fn register_prefab_aliased<P>(self, alias: String) -> Self
     where
-        P: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static;
+        P: PrefabData
+            + TypeUuid
+            + Default
+            + Clone
+            + Send
+            + Sync
+            + for<'de> Deserialize<'de>
+            + 'static;
 }
 
 impl PrefabAppBuilder for &mut AppBuilder {
@@ -223,7 +238,14 @@ impl PrefabAppBuilder for &mut AppBuilder {
 
     fn register_prefab_aliased<P>(self, alias: String) -> Self
     where
-        P: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
+        P: PrefabData
+            + TypeUuid
+            + Default
+            + Clone
+            + Send
+            + Sync
+            + for<'de> Deserialize<'de>
+            + 'static,
     {
         let mut prefab_registry = self
             .app

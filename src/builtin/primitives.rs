@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, reflect::TypeUuid};
 use serde::{Deserialize, Serialize};
 
 use crate::prelude::{PrefabAppBuilder, PrefabData};
@@ -30,7 +30,8 @@ impl FromWorld for Primitives {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Reflect, TypeUuid)]
+#[uuid = "8b935cbf-5eeb-486b-a54c-7668b95c022c"]
 pub struct CubePrefab;
 
 impl PrefabData for CubePrefab {

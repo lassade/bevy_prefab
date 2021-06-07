@@ -438,7 +438,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
 
 #[cfg(test)]
 mod tests {
-    use bevy::ecs::world::World;
+    use bevy::{ecs::world::World, reflect::TypeUuid};
     use serde::Deserialize;
 
     use super::*;
@@ -450,7 +450,8 @@ mod tests {
     #[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
     struct Name(String);
 
-    #[derive(Default, Debug, Deserialize, Clone)]
+    #[derive(Default, Debug, Deserialize, Clone, TypeUuid)]
+    #[uuid = "8c24e0d1-98cc-4865-b27a-c776f5ba614d"]
     struct Lamp {
         light_strength: f32,
     }

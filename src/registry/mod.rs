@@ -1,6 +1,5 @@
 use std::any::TypeId;
 
-use anyhow::Result;
 use bevy::utils::HashMap;
 use thiserror::Error;
 
@@ -50,7 +49,7 @@ impl<T> Registry<T> {
         alias: String,
         type_info: (TypeId, &'static str),
         build: impl Fn() -> T,
-    ) -> Result<()> {
+    ) -> Result<usize, RegistryError> {
         use std::collections::hash_map::Entry::*;
 
         let (type_id, type_name) = type_info;
@@ -64,7 +63,7 @@ impl<T> Registry<T> {
                 self.contents.push((build)());
                 alias.insert(i);
                 id.insert(i);
-                Ok(())
+                Ok(i)
             }
         }
     }

@@ -1,10 +1,13 @@
 use std::fmt::Debug;
 
 use anyhow::Result;
-use bevy::ecs::{
-    component::Component,
-    entity::Entity,
-    world::{EntityMut, World},
+use bevy::{
+    ecs::{
+        component::Component,
+        entity::Entity,
+        world::{EntityMut, World},
+    },
+    reflect::TypeUuid,
 };
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +54,8 @@ where
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, TypeUuid)]
+#[uuid = "3c603f24-9a89-45c3-8f4a-087a28f006df"]
 pub struct BlankPrefab;
 
 impl PrefabData for BlankPrefab {
