@@ -1,5 +1,7 @@
 # Prefab system for bevy
 
+**Disclaimer** this crate is very experimental, it might not even work, use at your own risk
+
 ## Features
 
 1. Human readable format

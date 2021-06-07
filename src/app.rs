@@ -16,7 +16,7 @@ use crate::{
         shorten_name, ComponentDescriptorRegistry, ComponentEntityMapperRegistry,
         PrefabDescriptorRegistry,
     },
-    Prefab, PrefabData,
+    Prefab, PrefabConstruct, PrefabData, PrefabNotInstantiatedTag, PrefabTransformOverride,
 };
 
 /// Adds prefab functionality to bevy
@@ -45,6 +45,34 @@ impl PrefabPlugin {
     pub fn with_objects_prefabs(mut self) -> Self {
         self.objects_prefabs = true;
         self
+    }
+
+    fn register_prefab_internal_components(&self, app_builder: &mut AppBuilder) {
+        let mut component_registry = app_builder
+            .app
+            .world
+            .get_resource_mut::<ComponentDescriptorRegistry>()
+            .unwrap();
+
+        component_registry
+            .register_aliased_non_deserializable::<Handle<Prefab>>("__Handle<Prefab>".to_string())
+            .unwrap();
+
+        component_registry
+            .register_aliased_non_deserializable::<PrefabNotInstantiatedTag>(
+                "__PrefabNotInstantiatedTag".to_string(),
+            )
+            .unwrap();
+
+        component_registry
+            .register_aliased_non_deserializable::<PrefabTransformOverride>(
+                "__PrefabTransformOverride".to_string(),
+            )
+            .unwrap();
+
+        component_registry
+            .register_aliased_non_deserializable::<PrefabConstruct>("__PrefabConstruct".to_string())
+            .unwrap();
     }
 }
 
@@ -83,6 +111,7 @@ impl Plugin for PrefabPlugin {
                 prefab_managing_system.exclusive_system(),
             );
 
+        // TODO: avoid getting the same resources multiple times, to reduce startup times
         // register bevy default components
         app_builder
             .register_prefab_mappable_component::<Parent>()
@@ -95,6 +124,9 @@ impl Plugin for PrefabPlugin {
             .register_prefab_component::<DirectionalLight>()
             .register_prefab_component_aliased::<Handle<Mesh>>("Mesh".to_string())
             .register_prefab_component::<Handle<StandardMaterial>>();
+
+        // register components needed by the prefab system
+        self.register_prefab_internal_components(app_builder);
 
         if self.primitives_prefabs {
             crate::builtin::primitives::register_primitives_prefabs(app_builder);
@@ -134,11 +166,11 @@ pub trait PrefabAppBuilder: Sized {
         self.register_prefab_component_aliased::<C>(shorten_name(type_name::<C>()))
     }
 
-    fn register_prefab<D>(self) -> Self
+    fn register_prefab<P>(self) -> Self
     where
-        D: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
+        P: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {
-        self.register_prefab_aliased::<D>(shorten_name(type_name::<D>()))
+        self.register_prefab_aliased::<P>(shorten_name(type_name::<P>()))
     }
 
     fn register_prefab_mappable_component_aliased<C>(self, alias: String) -> Self
@@ -149,9 +181,9 @@ pub trait PrefabAppBuilder: Sized {
     where
         C: Component + Clone + for<'de> Deserialize<'de> + 'static;
 
-    fn register_prefab_aliased<D>(self, alias: String) -> Self
+    fn register_prefab_aliased<P>(self, alias: String) -> Self
     where
-        D: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static;
+        P: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static;
 }
 
 impl PrefabAppBuilder for &mut AppBuilder {
@@ -189,9 +221,9 @@ impl PrefabAppBuilder for &mut AppBuilder {
         self
     }
 
-    fn register_prefab_aliased<D>(self, alias: String) -> Self
+    fn register_prefab_aliased<P>(self, alias: String) -> Self
     where
-        D: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
+        P: PrefabData + Default + Clone + Send + Sync + for<'de> Deserialize<'de> + 'static,
     {
         let mut prefab_registry = self
             .app
@@ -200,8 +232,10 @@ impl PrefabAppBuilder for &mut AppBuilder {
             .unwrap();
 
         prefab_registry
-            .register_aliased::<D>(alias)
+            .register_aliased::<P>(alias.clone())
             .expect("prefab couldn't be registered");
+
+        self.register_prefab_component_aliased::<P>(alias);
 
         self
     }

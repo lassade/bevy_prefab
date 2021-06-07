@@ -1,0 +1,9 @@
+Prefab(
+    scene: [
+        CubePrefab(
+            transform: (
+                translation: Some((0.0, 0.5, 0.0))
+            )
+        ),
+    ],
+)

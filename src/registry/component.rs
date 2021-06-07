@@ -32,6 +32,24 @@ impl Default for ComponentDescriptorRegistry {
 }
 
 impl ComponentDescriptorRegistry {
+    /// Register a component with a stub deserialize impl
+    pub fn register_aliased_non_deserializable<T>(&mut self, alias: String) -> Result<()>
+    where
+        T: Component + Clone,
+    {
+        self.register_inner::<T>(
+            alias,
+            |deserializer, _| {
+                serde::de::IgnoredAny::deserialize(deserializer)?;
+                Ok(())
+            },
+            |from_world, to_world, from_entity, to_entity| {
+                let from = from_world.get::<T>(from_entity).unwrap();
+                to_world.entity_mut(to_entity).insert(from.clone());
+            },
+        )
+    }
+
     pub fn register_aliased<T>(&mut self, alias: String) -> Result<()>
     where
         T: Component + Clone + for<'de> Deserialize<'de> + 'static,
@@ -77,7 +95,7 @@ impl ComponentDescriptorRegistry {
         copy: ComponentCopyFn,
     ) -> Result<()>
     where
-        T: for<'de> Deserialize<'de> + 'static,
+        T: 'static,
     {
         let type_info = (TypeId::of::<T>(), type_name::<T>());
         self.register_internal(alias, type_info, || ComponentDescriptor { de, copy })

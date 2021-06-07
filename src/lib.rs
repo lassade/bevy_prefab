@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod app;
 pub mod builtin;
-//pub mod command;
+pub mod command;
 pub mod data;
 pub mod de;
 pub mod loader;
@@ -22,7 +22,7 @@ use crate::data::{BoxedPrefabData, PrefabData};
 
 pub mod prelude {
     pub use crate::app::*;
-    //pub use crate::command::PrefabCommands;
+    pub use crate::command::PrefabCommands;
     pub use crate::data::{BoxedPrefabData, PrefabData};
     pub use crate::Prefab;
 }
@@ -64,14 +64,15 @@ pub struct PrefabTransformOverride {
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Tags a prefab with pending instancing
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct PrefabNotInstantiatedTag;
 
 /// Tags a prefab as missing
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct PrefabMissingTag;
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#[derive(Clone)]
 /// Overrides the prefab construct function, needed for procedural prefabs
 pub struct PrefabConstruct(PrefabConstructFn);
