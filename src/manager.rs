@@ -115,6 +115,12 @@ fn prefab_spawner(
             // Run construct function
             if let Some(prefab_construct) = root.remove::<PrefabConstruct>() {
                 (prefab_construct.0)(world, root_entity).unwrap();
+            } else {
+                prefab
+                    .defaults
+                    .0
+                    .construct_instance(world, root_entity)
+                    .unwrap();
             }
         }
 

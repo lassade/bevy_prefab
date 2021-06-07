@@ -160,11 +160,14 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             nested.id = blank_entity;
 
             blank.insert_bundle((
-                nested.source.clone(),
+                nested.source.clone().unwrap_or_default(),
                 nested.transform.clone(),
                 PrefabNotInstantiatedTag,
-                PrefabConstruct(construct),
             ));
+
+            if nested.source.is_none() {
+                blank.insert(PrefabConstruct(construct));
+            }
 
             if let Some(prefab_data) = &nested.data {
                 // Insert the PrefabData (down casted) in the root Entity so it can be available during runtime

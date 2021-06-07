@@ -141,6 +141,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             id_validation,
             descriptor,
         } = self;
+
         let data_seed = PrefabInstanceData { descriptor };
 
         while let Some(key) = access.next_key()? {
@@ -184,11 +185,8 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         }
 
         let id = id.unwrap_or_else(|| id_validation.generate_unique());
-        let source = source.unwrap_or_default();
         let parent = parent.unwrap_or_default();
         let transform = transform.unwrap_or_default();
-        // TODO: Read defaults from the Parent prefab
-        let data = data.ok_or(de::Error::missing_field("data"))?;
 
         Ok(PrefabInstance {
             id,
@@ -205,7 +203,7 @@ struct PrefabInstanceData {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceData {
-    type Value = Option<BoxedPrefabData>;
+    type Value = BoxedPrefabData;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -213,8 +211,7 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceData {
     {
         let PrefabInstanceData { descriptor } = self;
         let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
-        let data = (descriptor.de)(&mut deserializer).map_err(de::Error::custom)?;
-        Ok(Some(data))
+        (descriptor.de)(&mut deserializer).map_err(de::Error::custom)
     }
 }
 

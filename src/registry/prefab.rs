@@ -49,13 +49,7 @@ impl PrefabDescriptorRegistry {
                 Ok(BoxedPrefabData(Box::new(value)))
             },
             default: || BoxedPrefabData(Box::new(T::default())),
-            construct: |world, root| {
-                world
-                    .get_entity_mut(root)
-                    .and_then(|e| e.get::<T>().cloned())
-                    .ok_or_else(|| todo!())
-                    .and_then(|data| T::construct(&data, world, root))
-            },
+            construct: |world, root| T::default().construct_instance(world, root),
         })
     }
 }

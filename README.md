@@ -85,7 +85,7 @@ fn main() {
             PrefabPlugin::default()
                 // optional pre built-prefabs
                 .with_primitives_prefabs()
-                .with_object_prefabs()
+                .with_objects_prefabs()
         )
         .run();
 }

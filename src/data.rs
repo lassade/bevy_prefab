@@ -25,16 +25,27 @@ pub trait PrefabDataHelper {
     /// Copies it self in the prefab instance so that self will be available during runtime,
     /// but doesn't override the previously if already has
     fn copy_to_instance(&self, instance: &mut EntityMut);
+
+    /// Constructs prefabs using the instance data or default to this data
+    fn construct_instance(&self, world: &mut World, root: Entity) -> Result<()>;
 }
 
 impl<T> PrefabDataHelper for T
 where
-    T: PrefabData + Clone + Component + 'static,
+    T: PrefabData + Clone + Send + Sync + Component + 'static,
 {
     fn copy_to_instance(&self, entity: &mut EntityMut) {
         if !entity.contains::<T>() {
             entity.insert(self.clone());
         }
+    }
+
+    fn construct_instance(&self, world: &mut World, root: Entity) -> Result<()> {
+        let data = world
+            .get_entity_mut(root)
+            .and_then(|e| e.get::<T>().cloned());
+        let data = data.as_ref().unwrap_or_else(|| self);
+        T::construct(&data, world, root)
     }
 }
 
