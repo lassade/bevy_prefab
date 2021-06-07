@@ -10,8 +10,7 @@ use serde::Deserialize;
 use crate::{
     data::BlankPrefab,
     de::PrefabDeserializer,
-    loader::PrefabLoader,
-    manager::prefab_managing_system,
+    manager::{prefab_commit_startup_system, prefab_managing_system},
     prelude::BoxedPrefabData,
     registry::{
         shorten_name, ComponentDescriptorRegistry, ComponentEntityMapperRegistry,
@@ -77,6 +76,7 @@ impl Plugin for PrefabPlugin {
 
         // add prefab manager system
         app_builder
+            .add_startup_system(prefab_commit_startup_system.exclusive_system())
             .add_startup_system(prefab_managing_system.exclusive_system())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -116,10 +116,6 @@ impl Plugin for PrefabPlugin {
         let prefab_deserializer =
             PrefabDeserializer::new(component_entity_mapper, component_registry, prefab_registry);
         world.insert_resource(prefab_deserializer);
-
-        // Add loader once PrefabRegistry was created
-        let loader = PrefabLoader::from_world(&mut app_builder.app.world);
-        app_builder.add_asset_loader(loader);
     }
 }
 

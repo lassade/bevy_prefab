@@ -3,6 +3,7 @@ use thiserror::Error;
 
 use crate::{
     de::PrefabDeserializer,
+    loader::PrefabLoader,
     registry::{ComponentDescriptorRegistry, ComponentEntityMapperRegistry},
     Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTransformOverride,
 };
@@ -127,6 +128,15 @@ fn prefab_spawner(
             break;
         }
     }
+}
+
+pub(crate) fn prefab_commit_startup_system(world: &mut World) {
+    // Create loader on startup, commits to registered prefab and components
+    let loader = PrefabLoader::from_world(world);
+    world
+        .get_resource::<AssetServer>()
+        .unwrap()
+        .add_loader(loader);
 }
 
 pub fn prefab_managing_system(world: &mut World) {
