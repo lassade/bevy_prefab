@@ -7,6 +7,7 @@ use crate::prelude::{PrefabAppBuilder, PrefabData};
 
 #[derive(Debug)]
 pub struct Primitives {
+    default_material: Handle<StandardMaterial>,
     cube: Handle<Mesh>,
 }
 
@@ -14,7 +15,16 @@ impl FromWorld for Primitives {
     fn from_world(world: &mut World) -> Self {
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let cube = meshes.add(shape::Cube { size: 1.0 }.into());
-        Self { cube }
+
+        let mut materials = world
+            .get_resource_mut::<Assets<StandardMaterial>>()
+            .unwrap();
+        let default_material = materials.add(Color::GRAY.into());
+
+        Self {
+            cube,
+            default_material,
+        }
     }
 }
 
@@ -25,11 +35,14 @@ pub struct CubePrefab;
 
 impl PrefabData for CubePrefab {
     fn construct(&self, world: &mut World, root: Entity) -> anyhow::Result<()> {
-        let mesh = world.get_resource::<Primitives>().unwrap().cube.clone();
+        let primitives = world.get_resource::<Primitives>().unwrap();
+        let mesh = primitives.cube.clone();
+        let material = primitives.default_material.clone();
 
         world.entity_mut(root).with_children(|builder| {
             builder.spawn_bundle(PbrBundle {
                 mesh,
+                material,
                 ..Default::default()
             });
         });

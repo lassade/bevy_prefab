@@ -121,7 +121,6 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             prefab_registry,
         } = self;
 
-        let construct = descriptor.construct.clone();
         let data_seed = PrefabDataDeserializer { descriptor };
 
         while let Some(key) = access.next_key()? {
@@ -166,7 +165,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             ));
 
             if nested.source.is_none() {
-                blank.insert(PrefabConstruct(construct));
+                blank.insert(PrefabConstruct(nested.constructor));
             }
 
             if let Some(prefab_data) = &nested.data {

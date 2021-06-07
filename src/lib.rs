@@ -1,8 +1,7 @@
 use std::fmt::Debug;
 
 use bevy::{
-    asset::Handle,
-    ecs::{entity::Entity, world::World},
+    ecs::world::World,
     math::{Quat, Vec3},
     prelude::Transform,
     reflect::TypeUuid,
@@ -40,18 +39,6 @@ pub struct Prefab {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-#[derive(Debug)]
-struct PrefabInstance {
-    id: Entity,
-    /// Prefab source file, procedural prefabs may not require a source to base it self from
-    source: Option<Handle<Prefab>>,
-    // overrides
-    parent: Option<Entity>,
-    transform: PrefabTransformOverride,
-    // data feed to construct script
-    data: Option<BoxedPrefabData>,
-}
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]

@@ -64,6 +64,8 @@ Prefab (
 
 ## TODO
 
+- validate if instance type matches with source type
+- `source_prefab_required() -> bool` triggers an error when source is necessary but missing from prefab
 - tests
 - query about prefab loading status
 - many prefab aliases

@@ -6,6 +6,7 @@ use bevy::{
         entity::{Entity, EntityMap},
         world::World,
     },
+    prelude::Handle,
     utils::HashSet,
 };
 use rand::{prelude::ThreadRng, RngCore};
@@ -16,8 +17,10 @@ use serde::{
 
 use crate::{
     de::component::IdentifiedComponentSeq,
-    registry::{ComponentDescriptorRegistry, PrefabDescriptor, PrefabDescriptorRegistry},
-    BoxedPrefabData, PrefabInstance,
+    registry::{
+        ComponentDescriptorRegistry, PrefabConstructFn, PrefabDescriptor, PrefabDescriptorRegistry,
+    },
+    BoxedPrefabData, Prefab, PrefabTransformOverride,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -102,6 +105,18 @@ impl<'a, 'de> Visitor<'de> for InstanceIdentifier<'a> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+pub(crate) struct PrefabInstance {
+    pub constructor: PrefabConstructFn,
+    pub id: Entity,
+    /// Prefab source file, procedural prefabs may not require a source to base it self from
+    pub source: Option<Handle<Prefab>>,
+    // overrides
+    pub parent: Option<Entity>,
+    pub transform: PrefabTransformOverride,
+    // data feed to construct script
+    pub data: Option<BoxedPrefabData>,
+}
+
 const PREFAB_INSTANCE_FIELDS: &'static [&'static str] =
     &["id", "source", "transform", "parent", "data"];
 
@@ -142,6 +157,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             descriptor,
         } = self;
 
+        let constructor = descriptor.construct;
         let data_seed = PrefabInstanceData { descriptor };
 
         while let Some(key) = access.next_key()? {
@@ -189,6 +205,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         let transform = transform.unwrap_or_default();
 
         Ok(PrefabInstance {
+            constructor,
             id,
             source,
             parent,
