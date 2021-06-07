@@ -68,13 +68,14 @@ Prefab (
 - `source_prefab_required() -> bool` triggers an error when source is necessary but missing from prefab
 - tests
 - query about prefab loading status
-- many prefab aliases
+- hot reload
+- send prefab events instantiated or modified
 - prefab components
 - remove entities if prefab fails to load
-- better commands (instancing api)
 - serialization
 - uuid support for prefab variants and component names
 - embedded assets
+- save and load the table of components uuids to be used by non human readable formats on publishing
 
 ## Usage
 

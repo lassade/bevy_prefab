@@ -1,11 +1,14 @@
 use std::any::{type_name, TypeId};
 
 use anyhow::Result;
-use bevy::ecs::{
-    bundle::Bundle,
-    component::Component,
-    entity::Entity,
-    world::{EntityMut, World},
+use bevy::{
+    ecs::{
+        bundle::Bundle,
+        component::Component,
+        entity::Entity,
+        world::{EntityMut, World},
+    },
+    reflect::Uuid,
 };
 use serde::Deserialize;
 
@@ -97,8 +100,21 @@ impl ComponentDescriptorRegistry {
     where
         T: 'static,
     {
-        let type_info = (TypeId::of::<T>(), type_name::<T>());
+        // Make sure the uuid is unique
+        let mut uuid;
+        loop {
+            uuid = Uuid::new_v4();
+            if !self.by_uuid.contains_key(&uuid) {
+                break;
+            }
+        }
+
+        let type_info = (TypeId::of::<T>(), uuid, type_name::<T>());
         self.register_internal(alias, type_info, || ComponentDescriptor { de, copy })?;
         Ok(())
     }
 }
+
+// TODO: Save and load between interation and new component
+// /// List of all Uuids for each component alias
+// pub struct TableOfComponentsUuidByName(Vec<(String, Uuid)>);
