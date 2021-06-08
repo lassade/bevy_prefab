@@ -1,8 +1,16 @@
-use bevy::prelude::*;
+use bevy::{asset::AssetServerSettings, prelude::*};
 use bevy_prefab::prelude::*;
 
 fn main() {
+    let asset_folder = std::env::current_dir()
+        .unwrap()
+        .as_path()
+        .to_string_lossy()
+        .to_string()
+        + "/assets";
+
     App::build()
+        .insert_resource(AssetServerSettings { asset_folder })
         .add_plugins(DefaultPlugins)
         .add_plugin(
             PrefabPlugin::default()

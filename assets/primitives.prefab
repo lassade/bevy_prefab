@@ -2,13 +2,13 @@ Prefab(
     scene: [
         CubePrefab(
             transform: (
-                translation: Some((-5, 1, 0)),
+                translation: Some((-2, 1, 0)),
             )
         ),
         UVSpherePrefab(
             transform: (
                 translation: Some((0, 1, 0)),
-                scale: Some((0.5, 0.5, 0.5)),
+                scale: Some((1.0, 1.0, 1.0)),
             )
         ),
         // CapsulePrefab(

@@ -2,6 +2,7 @@ use std::{fmt, sync::Arc};
 
 use bevy::{
     ecs::{entity::EntityMap, world::World},
+    prelude::GlobalTransform,
     transform::components::Parent,
 };
 use serde::{
@@ -160,6 +161,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
 
             blank.insert_bundle((
                 nested.source.clone().unwrap_or_default(),
+                GlobalTransform::default(),
                 nested.transform.clone(),
                 PrefabNotInstantiatedTag { _marker: () },
             ));
