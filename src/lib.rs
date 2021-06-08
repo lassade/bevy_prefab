@@ -4,7 +4,7 @@ use bevy::{
     ecs::world::World,
     math::{Quat, Vec3},
     prelude::Transform,
-    reflect::TypeUuid,
+    reflect::{TypeUuid, Uuid},
 };
 use serde::{Deserialize, Serialize};
 
@@ -51,15 +51,32 @@ pub struct PrefabTransformOverride {
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Tags a prefab with pending instancing
-#[derive(Default, Debug, Clone)]
-pub struct PrefabNotInstantiatedTag;
+#[derive(Debug, Clone)]
+pub struct PrefabNotInstantiatedTag(());
+
+#[derive(Debug, Clone, Copy)]
+pub enum PrefabError {
+    Missing,
+    WrongExpectedSourcePrefab,
+}
 
 /// Tags a prefab as missing
-#[derive(Default, Debug, Clone)]
-pub struct PrefabMissingTag;
+#[derive(Debug, Clone)]
+pub struct PrefabErrorTag(PrefabError);
+
+impl PrefabErrorTag {
+    pub fn error(&self) -> PrefabError {
+        self.0
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Clone)]
 /// Overrides the prefab construct function, needed for procedural prefabs
 pub struct PrefabConstruct(PrefabConstructFn);
+
+/// Used internally to validate if the prefab match the expected type,
+/// sadly this validation can't be done during deserialization
+#[derive(Debug, Clone)]
+struct PrefabTypeUuid(Uuid);

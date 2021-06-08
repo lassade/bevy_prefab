@@ -18,6 +18,7 @@ use crate::{
         PrefabDescriptorRegistry,
     },
     Prefab, PrefabConstruct, PrefabData, PrefabNotInstantiatedTag, PrefabTransformOverride,
+    PrefabTypeUuid,
 };
 
 /// Adds prefab functionality to bevy
@@ -56,23 +57,27 @@ impl PrefabPlugin {
             .unwrap();
 
         component_registry
-            .register_aliased_non_deserializable::<Handle<Prefab>>("__Handle<Prefab>".to_string())
+            .register_aliased_non_deserializable::<Handle<Prefab>>("Handle<Prefab>".to_string())
             .unwrap();
 
         component_registry
             .register_aliased_non_deserializable::<PrefabNotInstantiatedTag>(
-                "__PrefabNotInstantiatedTag".to_string(),
+                "PrefabNotInstantiatedTag".to_string(),
             )
             .unwrap();
 
         component_registry
             .register_aliased_non_deserializable::<PrefabTransformOverride>(
-                "__PrefabTransformOverride".to_string(),
+                "PrefabTransformOverride".to_string(),
             )
             .unwrap();
 
         component_registry
-            .register_aliased_non_deserializable::<PrefabConstruct>("__PrefabConstruct".to_string())
+            .register_aliased_non_deserializable::<PrefabConstruct>("PrefabConstruct".to_string())
+            .unwrap();
+
+        component_registry
+            .register_aliased_non_deserializable::<PrefabTypeUuid>("PrefabSourceType".to_string())
             .unwrap();
     }
 }

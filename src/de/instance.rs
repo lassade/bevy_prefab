@@ -7,6 +7,7 @@ use bevy::{
         world::World,
     },
     prelude::Handle,
+    reflect::Uuid,
     utils::HashSet,
 };
 use rand::{prelude::ThreadRng, RngCore};
@@ -107,6 +108,7 @@ impl<'a, 'de> Visitor<'de> for InstanceIdentifier<'a> {
 
 pub(crate) struct PrefabInstance {
     pub constructor: PrefabConstructFn,
+    pub uuid: Uuid,
     pub id: Entity,
     /// Prefab source file, procedural prefabs may not require a source to base it self from
     pub source: Option<Handle<Prefab>>,
@@ -157,6 +159,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             descriptor,
         } = self;
 
+        let uuid = (descriptor.uuid)();
         let source_prefab_required = descriptor.source_prefab_required;
         let constructor = descriptor.construct;
         let data_seed = PrefabInstanceData { descriptor };
@@ -219,6 +222,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
 
         Ok(PrefabInstance {
             constructor,
+            uuid,
             id,
             source,
             parent,

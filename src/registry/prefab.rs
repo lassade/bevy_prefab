@@ -3,7 +3,7 @@ use std::any::{type_name, TypeId};
 use anyhow::Result;
 use bevy::{
     prelude::{Entity, World},
-    reflect::TypeUuid,
+    reflect::{TypeUuid, Uuid},
 };
 use serde::Deserialize;
 
@@ -18,12 +18,15 @@ pub(crate) type PrefabDefaultFn = fn() -> BoxedPrefabData;
 
 pub(crate) type PrefabConstructFn = fn(&mut World, Entity) -> Result<()>;
 
+pub(crate) type PrefabUuidFn = fn() -> Uuid;
+
 #[derive(Clone)]
 pub struct PrefabDescriptor {
     pub(crate) source_prefab_required: bool,
     pub(crate) de: PrefabDeserializerFn,
     pub(crate) default: PrefabDefaultFn,
     pub(crate) construct: PrefabConstructFn,
+    pub(crate) uuid: PrefabUuidFn,
 }
 
 /// Registry of all prefab types available
@@ -62,6 +65,7 @@ impl PrefabDescriptorRegistry {
             },
             default: || BoxedPrefabData(Box::new(T::default())),
             construct: |world, root| T::default().construct_instance(world, root),
+            uuid: || T::TYPE_UUID,
         })?;
         Ok(())
     }

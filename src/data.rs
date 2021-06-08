@@ -7,7 +7,7 @@ use bevy::{
         entity::Entity,
         world::{EntityMut, World},
     },
-    reflect::TypeUuid,
+    reflect::{TypeUuid, Uuid},
 };
 use serde::{Deserialize, Serialize};
 
@@ -31,11 +31,14 @@ pub trait PrefabDataHelper {
 
     /// Constructs prefabs using the instance data or default to this data
     fn construct_instance(&self, world: &mut World, root: Entity) -> Result<()>;
+
+    /// Uuid from [`TypeUuid`]
+    fn type_uuid(&self) -> Uuid;
 }
 
 impl<T> PrefabDataHelper for T
 where
-    T: PrefabData + Clone + Send + Sync + Component + 'static,
+    T: PrefabData + TypeUuid + Clone + Send + Sync + Component + 'static,
 {
     fn copy_to_instance(&self, entity: &mut EntityMut) {
         if !entity.contains::<T>() {
@@ -49,6 +52,10 @@ where
             .and_then(|e| e.get::<T>().cloned());
         let data = data.as_ref().unwrap_or_else(|| self);
         T::construct(&data, world, root)
+    }
+
+    fn type_uuid(&self) -> Uuid {
+        T::TYPE_UUID
     }
 }
 

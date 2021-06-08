@@ -14,7 +14,7 @@ use crate::{
         ComponentDescriptorRegistry, ComponentEntityMapperRegistry, PrefabDescriptor,
         PrefabDescriptorRegistry,
     },
-    BoxedPrefabData, Prefab, PrefabConstruct, PrefabNotInstantiatedTag,
+    BoxedPrefabData, Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTypeUuid,
 };
 
 mod component;
@@ -162,6 +162,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
                 nested.source.clone().unwrap_or_default(),
                 nested.transform.clone(),
                 PrefabNotInstantiatedTag,
+                PrefabTypeUuid(nested.uuid),
             ));
 
             if nested.source.is_none() {

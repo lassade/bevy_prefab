@@ -5,7 +5,8 @@ use crate::{
     de::PrefabDeserializer,
     loader::PrefabLoader,
     registry::{ComponentDescriptorRegistry, ComponentEntityMapperRegistry},
-    Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTransformOverride,
+    Prefab, PrefabConstruct, PrefabError, PrefabErrorTag, PrefabNotInstantiatedTag,
+    PrefabTransformOverride, PrefabTypeUuid,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -50,6 +51,24 @@ fn prefab_spawner(
                 }
             };
 
+            // Validate prefab type with the expected type, sadly this can't be done during
+            // de-serialization because the prefab might not be available at that time,
+            // so as a consequence the exact source of error will be hard to determine
+            let mut root = world.entity_mut(root_entity);
+            if let Some(PrefabTypeUuid(uuid)) = root.get() {
+                let source = prefab.defaults.0.type_uuid();
+                if source != *uuid {
+                    // Fail without loading prefab
+                    root.remove::<PrefabNotInstantiatedTag>();
+                    root.insert(PrefabErrorTag(PrefabError::WrongExpectedSourcePrefab));
+                    error!(
+                        "prefab expected type `{}` but got source of type `{}`",
+                        uuid, source
+                    );
+                    continue;
+                }
+            }
+
             let mut prefab_to_instance = EntityMap::default();
 
             // Copy prefab entities over
@@ -60,17 +79,26 @@ fn prefab_spawner(
                         .or_insert_with(|| world.spawn().id());
 
                     for component_id in archetype.components() {
-                        let component_info = prefab
-                                .world
-                                .components()
-                                .get_info(component_id)
-                                .expect("world must have a `ComponentInfo` for a `ComponentId` of one of their own `Archetype`s");
+                        let component_info =
+                            prefab.world.components().get_info(component_id).unwrap();
 
-                        let descriptor = component_registry
-                            .find_by_type(component_info.type_id().unwrap())
-                            .expect("prefab component type should be registered");
-
-                        (descriptor.copy)(&prefab.world, world, *prefab_entity, instance_entity);
+                        if let Some(descriptor) =
+                            component_registry.find_by_type(component_info.type_id().unwrap())
+                        {
+                            // Copy prefab from his world over the current active world
+                            (descriptor.copy)(
+                                &prefab.world,
+                                world,
+                                *prefab_entity,
+                                instance_entity,
+                            );
+                        } else {
+                            // Hard error, must be fixed by user
+                            panic!(
+                                "prefab component `{}` not registered",
+                                component_info.name()
+                            );
+                        }
                     }
                 }
             }
