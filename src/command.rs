@@ -14,11 +14,14 @@ where
     fn write(self: Box<Self>, world: &mut World) {
         let mut root = world.spawn();
         root.insert_bundle((
-            self.prefab_handle,
+            GlobalTransform::default(),
             Transform::default(),
-            PrefabNotInstantiatedTag,
+            Children::default(),
+            self.prefab_handle,
+            PrefabNotInstantiatedTag { _marker: () },
         ));
         root.insert_bundle(self.overrides);
+        info!("spawn prefab");
     }
 }
 

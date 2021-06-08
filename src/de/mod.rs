@@ -161,12 +161,15 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             blank.insert_bundle((
                 nested.source.clone().unwrap_or_default(),
                 nested.transform.clone(),
-                PrefabNotInstantiatedTag,
-                PrefabTypeUuid(nested.uuid),
+                PrefabNotInstantiatedTag { _marker: () },
             ));
 
             if nested.source.is_none() {
+                // Source isn't available, insert construct function definition
                 blank.insert(PrefabConstruct(nested.constructor));
+            } else {
+                // Validate source type
+                blank.insert(PrefabTypeUuid(nested.uuid));
             }
 
             if let Some(prefab_data) = &nested.data {

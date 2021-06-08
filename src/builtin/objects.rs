@@ -17,13 +17,14 @@ impl PrefabData for StaticMeshPrefab {
         let mesh = self.mesh.clone();
         let material = self.material.clone();
 
-        world.entity_mut(root).with_children(|builder| {
-            builder.spawn_bundle(PbrBundle {
+        world
+            .spawn()
+            .insert_bundle(PbrBundle {
                 mesh,
                 material,
                 ..Default::default()
-            });
-        });
+            })
+            .insert(Parent(root));
 
         Ok(())
     }

@@ -2,8 +2,25 @@ Prefab(
     scene: [
         CubePrefab(
             transform: (
-                translation: Some((0.0, 0.5, 0.0))
+                translation: Some((-5, 1, 0)),
             )
         ),
+        UVSpherePrefab(
+            transform: (
+                translation: Some((0, 1, 0)),
+                scale: Some((0.5, 0.5, 0.5)),
+            )
+        ),
+        // CapsulePrefab(
+        //     transform: (
+        //         translation: Some((1, 1, 0)),
+        //     )
+        // ),
+        // PlanePrefab(
+        //     transform: (
+        //         translation: Some((0, 0, 0)),
+        //         scale: Some((4, 4, 4)),
+        //     )
+        // ),
     ],
 )

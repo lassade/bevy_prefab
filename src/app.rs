@@ -57,27 +57,23 @@ impl PrefabPlugin {
             .unwrap();
 
         component_registry
-            .register_aliased_non_deserializable::<Handle<Prefab>>("Handle<Prefab>".to_string())
+            .register_private::<Handle<Prefab>>("Handle<Prefab>".to_string())
             .unwrap();
 
         component_registry
-            .register_aliased_non_deserializable::<PrefabNotInstantiatedTag>(
-                "PrefabNotInstantiatedTag".to_string(),
-            )
+            .register_private::<PrefabNotInstantiatedTag>("PrefabNotInstantiatedTag".to_string())
             .unwrap();
 
         component_registry
-            .register_aliased_non_deserializable::<PrefabTransformOverride>(
-                "PrefabTransformOverride".to_string(),
-            )
+            .register_private::<PrefabTransformOverride>("PrefabTransformOverride".to_string())
             .unwrap();
 
         component_registry
-            .register_aliased_non_deserializable::<PrefabConstruct>("PrefabConstruct".to_string())
+            .register_private::<PrefabConstruct>("PrefabConstruct".to_string())
             .unwrap();
 
         component_registry
-            .register_aliased_non_deserializable::<PrefabTypeUuid>("PrefabSourceType".to_string())
+            .register_private::<PrefabTypeUuid>("PrefabTypeUuid".to_string())
             .unwrap();
     }
 }
@@ -121,6 +117,7 @@ impl Plugin for PrefabPlugin {
         // register bevy default components
         app_builder
             .register_prefab_mappable_component::<Parent>()
+            .register_prefab_component_non_serializable::<GlobalTransform>()
             .register_prefab_component::<Transform>()
             .register_prefab_component::<MainPass>()
             .register_prefab_component::<Draw>()
@@ -172,6 +169,13 @@ pub trait PrefabAppBuilder: Sized {
         self.register_prefab_component_aliased::<C>(shorten_name(type_name::<C>()))
     }
 
+    fn register_prefab_component_non_serializable<C>(self) -> Self
+    where
+        C: Component + Default + Clone,
+    {
+        self.register_prefab_component_aliased_non_serializable::<C>(shorten_name(type_name::<C>()))
+    }
+
     fn register_prefab<P>(self, source_prefab_required: bool) -> Self
     where
         P: PrefabData
@@ -193,6 +197,10 @@ pub trait PrefabAppBuilder: Sized {
     fn register_prefab_component_aliased<C>(self, alias: String) -> Self
     where
         C: Component + Clone + for<'de> Deserialize<'de> + 'static;
+
+    fn register_prefab_component_aliased_non_serializable<C>(self, alias: String) -> Self
+    where
+        C: Component + Default + Clone;
 
     fn register_prefab_aliased<P>(self, alias: String, source_prefab_required: bool) -> Self
     where
@@ -235,7 +243,24 @@ impl PrefabAppBuilder for &mut AppBuilder {
             .unwrap();
 
         component_registry
-            .register_aliased::<C>(alias)
+            .register::<C>(alias)
+            .expect("prefab component couldn't be registered");
+
+        self
+    }
+
+    fn register_prefab_component_aliased_non_serializable<C>(self, alias: String) -> Self
+    where
+        C: Component + Default + Clone,
+    {
+        let mut component_registry = self
+            .app
+            .world
+            .get_resource_mut::<ComponentDescriptorRegistry>()
+            .unwrap();
+
+        component_registry
+            .register_non_serializable::<C>(alias)
             .expect("prefab component couldn't be registered");
 
         self
@@ -269,7 +294,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
             .unwrap();
 
         component_registry
-            .register_aliased_prefab_data::<P>(alias)
+            .register_prefab_data::<P>(alias)
             .expect("prefab data component couldn't be registered");
 
         self

@@ -36,8 +36,8 @@ impl Default for ComponentDescriptorRegistry {
 }
 
 impl ComponentDescriptorRegistry {
-    /// Register a component with a stub deserialize impl
-    pub fn register_aliased_non_deserializable<T>(&mut self, alias: String) -> Result<()>
+    /// Private component for internal use only
+    pub(crate) fn register_private<T>(&mut self, alias: String) -> Result<()>
     where
         T: Component + Clone,
     {
@@ -54,7 +54,26 @@ impl ComponentDescriptorRegistry {
         )
     }
 
-    pub fn register_aliased<T>(&mut self, alias: String) -> Result<()>
+    /// Components that aren't serialized but must also be inserted
+    pub fn register_non_serializable<T>(&mut self, alias: String) -> Result<()>
+    where
+        T: Component + Default + Clone,
+    {
+        self.register_inner::<T>(
+            alias,
+            |deserializer, entity| {
+                serde::de::IgnoredAny::deserialize(deserializer)?;
+                entity.insert(T::default());
+                Ok(())
+            },
+            |from_world, to_world, from_entity, to_entity| {
+                let from = from_world.get::<T>(from_entity).unwrap();
+                to_world.entity_mut(to_entity).insert(from.clone());
+            },
+        )
+    }
+
+    pub fn register<T>(&mut self, alias: String) -> Result<()>
     where
         T: Component + Clone + for<'de> Deserialize<'de> + 'static,
     {
@@ -72,27 +91,8 @@ impl ComponentDescriptorRegistry {
         )
     }
 
-    // TODO: add register function in PrefabAppBuilder, main goal is to increase deserialization throughput
-    // pub fn register_group_aliased<T>(&mut self, alias: String) -> Result<()>
-    // where
-    //     T: Bundle + Clone + for<'de> Deserialize<'de> + 'static,
-    // {
-    //     self.register_inner::<T>(
-    //         alias,
-    //         |deserializer, entity| {
-    //             let value: T = Deserialize::deserialize(deserializer)?;
-    //             entity.insert_bundle(value);
-    //             Ok(())
-    //         },
-    //         |from_world, to_world, from_entity, to_entity| {
-    //             let from = from_world.get::<T>(from_entity).unwrap();
-    //             to_world.entity_mut(to_entity).insert_bundle(from.clone());
-    //         },
-    //     )
-    // }
-
     /// Prefab data is added component, but shouldn't be inserted as a normal component
-    pub(crate) fn register_aliased_prefab_data<T>(&mut self, alias: String) -> Result<()>
+    pub(crate) fn register_prefab_data<T>(&mut self, alias: String) -> Result<()>
     where
         T: Component + Clone,
     {

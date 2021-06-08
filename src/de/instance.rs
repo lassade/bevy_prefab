@@ -485,7 +485,7 @@ mod tests {
     fn read() {
         let mut component_registry = ComponentDescriptorRegistry::default();
         component_registry
-            .register_aliased::<Name>("Name".to_string())
+            .register::<Name>("Name".to_string())
             .unwrap();
 
         let mut prefab_registry = PrefabDescriptorRegistry::default();

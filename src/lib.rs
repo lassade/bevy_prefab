@@ -52,7 +52,10 @@ pub struct PrefabTransformOverride {
 
 /// Tags a prefab with pending instancing
 #[derive(Debug, Clone)]
-pub struct PrefabNotInstantiatedTag(());
+pub struct PrefabNotInstantiatedTag {
+    // TODO: Tuple variant version doesn't work,
+    _marker: (),
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum PrefabError {
