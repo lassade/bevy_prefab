@@ -3,7 +3,7 @@ use std::any::{type_name, TypeId};
 use anyhow::Result;
 use bevy::{
     ecs::{
-        bundle::Bundle,
+        //bundle::Bundle,
         component::Component,
         entity::Entity,
         world::{EntityMut, World},
@@ -72,24 +72,24 @@ impl ComponentDescriptorRegistry {
         )
     }
 
-    // TODO: add register functions in PrefabAppBuilder
-    pub fn register_group_aliased<T>(&mut self, alias: String) -> Result<()>
-    where
-        T: Bundle + Clone + for<'de> Deserialize<'de> + 'static,
-    {
-        self.register_inner::<T>(
-            alias,
-            |deserializer, entity| {
-                let value: T = Deserialize::deserialize(deserializer)?;
-                entity.insert_bundle(value);
-                Ok(())
-            },
-            |from_world, to_world, from_entity, to_entity| {
-                let from = from_world.get::<T>(from_entity).unwrap();
-                to_world.entity_mut(to_entity).insert_bundle(from.clone());
-            },
-        )
-    }
+    // TODO: add register function in PrefabAppBuilder, main goal is to increase deserialization throughput
+    // pub fn register_group_aliased<T>(&mut self, alias: String) -> Result<()>
+    // where
+    //     T: Bundle + Clone + for<'de> Deserialize<'de> + 'static,
+    // {
+    //     self.register_inner::<T>(
+    //         alias,
+    //         |deserializer, entity| {
+    //             let value: T = Deserialize::deserialize(deserializer)?;
+    //             entity.insert_bundle(value);
+    //             Ok(())
+    //         },
+    //         |from_world, to_world, from_entity, to_entity| {
+    //             let from = from_world.get::<T>(from_entity).unwrap();
+    //             to_world.entity_mut(to_entity).insert_bundle(from.clone());
+    //         },
+    //     )
+    // }
 
     /// Prefab data is added component, but shouldn't be inserted as a normal component
     pub(crate) fn register_aliased_prefab_data<T>(&mut self, alias: String) -> Result<()>

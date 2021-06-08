@@ -40,9 +40,10 @@ impl<T> Registry<T> {
         }
     }
 
-    pub fn find_by_uuid(&self, uuid: &Uuid) -> Option<&T> {
-        self.by_uuid.get(uuid).and_then(|i| self.reg.get(*i))
-    }
+    // TODO: Used to support prefabs uuid deserialization
+    // pub fn find_by_uuid(&self, uuid: &Uuid) -> Option<&T> {
+    //     self.by_uuid.get(uuid).and_then(|i| self.reg.get(*i))
+    // }
 
     pub fn find_by_name(&self, name: &str) -> Option<&T> {
         self.by_name.get(name).and_then(|i| self.reg.get(*i))
@@ -69,7 +70,7 @@ impl<T> Registry<T> {
             (_, Occupied(alias), _) => Err(RegistryError::AliasAlreadyRegistered(
                 alias.key().to_string(),
             ))?,
-            (Occupied(uuid), _, _) => Err(RegistryError::TypeAlreadyRegistered(type_name))?,
+            (Occupied(_), _, _) => Err(RegistryError::TypeAlreadyRegistered(type_name))?,
             (_, _, Occupied(uuid)) => Err(RegistryError::UuidAlreadyRegistered(*uuid.key()))?,
             (Vacant(id), Vacant(alias), Vacant(uuid)) => {
                 let i = self.reg.len();
