@@ -64,7 +64,7 @@ Prefab (
 
 ## TODO
 
-- validate if instance type matches it's source type
+- validate if instance type matches it's source type (sadly can't be done during deserializaiton so error source will be hard to determine)
 - tests
 - query about prefab loading status
 - hot reload
