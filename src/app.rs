@@ -257,7 +257,15 @@ impl PrefabAppBuilder for &mut AppBuilder {
             .register_aliased::<P>(alias.clone())
             .expect("prefab couldn't be registered");
 
-        self.register_prefab_component_aliased::<P>(alias);
+        let mut component_registry = self
+            .app
+            .world
+            .get_resource_mut::<ComponentDescriptorRegistry>()
+            .unwrap();
+
+        component_registry
+            .register_aliased_prefab_data::<P>(alias)
+            .expect("prefab data component couldn't be registered");
 
         self
     }

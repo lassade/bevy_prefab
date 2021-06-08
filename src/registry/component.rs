@@ -11,6 +11,7 @@ use bevy::{
     reflect::Uuid,
 };
 use serde::Deserialize;
+use thiserror::Error;
 
 use super::Registry;
 
@@ -90,8 +91,37 @@ impl ComponentDescriptorRegistry {
         )
     }
 
+    /// Prefab data is added component, but shouldn't be inserted as a normal component
+    pub(crate) fn register_aliased_prefab_data<T>(&mut self, alias: String) -> Result<()>
+    where
+        T: Component + Clone,
+    {
+        #[derive(Error, Debug)]
+        pub enum PrefabDataComponentRegistryError {
+            #[error("prefab data `{0}` can't be added as component")]
+            PrefabDataInsertedAsComponent(&'static str),
+        }
+
+        self.register_inner::<T>(
+            alias,
+            |_, _| {
+                // prefab data component will always fail to deserialize
+                Err(
+                    PrefabDataComponentRegistryError::PrefabDataInsertedAsComponent(
+                        type_name::<T>(),
+                    )
+                    .into(),
+                )
+            },
+            |from_world, to_world, from_entity, to_entity| {
+                let from = from_world.get::<T>(from_entity).unwrap();
+                to_world.entity_mut(to_entity).insert(from.clone());
+            },
+        )
+    }
+
     #[inline]
-    pub fn register_inner<T>(
+    fn register_inner<T>(
         &mut self,
         alias: String,
         de: ComponentDeserializerFn,
