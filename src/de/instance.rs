@@ -157,6 +157,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             descriptor,
         } = self;
 
+        let source_prefab_required = descriptor.source_prefab_required;
         let constructor = descriptor.construct;
         let data_seed = PrefabInstanceData { descriptor };
 
@@ -197,6 +198,18 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
                     }
                     data = Some(access.next_value_seed(&data_seed)?);
                 }
+            }
+        }
+
+        // prefabs only driven by code doesn't need source prefabs to define their main,
+        // here checks if the prefab needs the source field or not and give error to the user
+        if source_prefab_required {
+            if source.is_none() {
+                Err(de::Error::missing_field("source"))?;
+            }
+        } else {
+            if source.is_some() {
+                Err(de::Error::custom("source isn't used by prefab"))?;
             }
         }
 
@@ -473,7 +486,7 @@ mod tests {
 
         let mut prefab_registry = PrefabDescriptorRegistry::default();
         prefab_registry
-            .register_aliased::<Lamp>("Lamp".to_string())
+            .register_aliased::<Lamp>("Lamp".to_string(), true)
             .unwrap();
 
         let id_validation = &mut IdValidation::empty();

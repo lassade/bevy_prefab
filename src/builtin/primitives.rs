@@ -64,5 +64,5 @@ pub fn register_primitives_prefabs(app_builder: &mut AppBuilder) {
     let primitives = Primitives::from_world(&mut app_builder.app.world);
     app_builder
         .insert_resource(primitives)
-        .register_prefab::<CubePrefab>();
+        .register_prefab::<CubePrefab>(false);
 }

@@ -37,5 +37,5 @@ impl PrefabData for StaticMeshPrefab {
 ///////////////////////////////////////////////////////////////////////////////
 
 pub fn register_objects_prefabs(app_builder: &mut AppBuilder) {
-    app_builder.register_prefab::<StaticMeshPrefab>();
+    app_builder.register_prefab::<StaticMeshPrefab>(false);
 }

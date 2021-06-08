@@ -20,6 +20,7 @@ pub(crate) type PrefabConstructFn = fn(&mut World, Entity) -> Result<()>;
 
 #[derive(Clone)]
 pub struct PrefabDescriptor {
+    pub(crate) source_prefab_required: bool,
     pub(crate) de: PrefabDeserializerFn,
     pub(crate) default: PrefabDefaultFn,
     pub(crate) construct: PrefabConstructFn,
@@ -34,14 +35,14 @@ impl Default for PrefabDescriptorRegistry {
     fn default() -> Self {
         let mut registry = Self::empty();
         registry
-            .register_aliased::<BlankPrefab>("Prefab".to_string())
+            .register_aliased::<BlankPrefab>("Prefab".to_string(), true)
             .unwrap();
         registry
     }
 }
 
 impl PrefabDescriptorRegistry {
-    pub fn register_aliased<T>(&mut self, alias: String) -> Result<()>
+    pub fn register_aliased<T>(&mut self, alias: String, source_prefab_required: bool) -> Result<()>
     where
         T: PrefabData
             + TypeUuid
@@ -54,6 +55,7 @@ impl PrefabDescriptorRegistry {
     {
         let type_info = (TypeId::of::<T>(), T::TYPE_UUID, type_name::<T>());
         self.register_internal(alias, type_info, || PrefabDescriptor {
+            source_prefab_required,
             de: |deserializer| {
                 let value: T = Deserialize::deserialize(deserializer)?;
                 Ok(BoxedPrefabData(Box::new(value)))

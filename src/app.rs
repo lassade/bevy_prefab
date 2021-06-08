@@ -167,7 +167,7 @@ pub trait PrefabAppBuilder: Sized {
         self.register_prefab_component_aliased::<C>(shorten_name(type_name::<C>()))
     }
 
-    fn register_prefab<P>(self) -> Self
+    fn register_prefab<P>(self, source_prefab_required: bool) -> Self
     where
         P: PrefabData
             + TypeUuid
@@ -178,7 +178,7 @@ pub trait PrefabAppBuilder: Sized {
             + for<'de> Deserialize<'de>
             + 'static,
     {
-        self.register_prefab_aliased::<P>(shorten_name(type_name::<P>()))
+        self.register_prefab_aliased::<P>(shorten_name(type_name::<P>()), source_prefab_required)
     }
 
     fn register_prefab_mappable_component_aliased<C>(self, alias: String) -> Self
@@ -189,7 +189,7 @@ pub trait PrefabAppBuilder: Sized {
     where
         C: Component + Clone + for<'de> Deserialize<'de> + 'static;
 
-    fn register_prefab_aliased<P>(self, alias: String) -> Self
+    fn register_prefab_aliased<P>(self, alias: String, source_prefab_required: bool) -> Self
     where
         P: PrefabData
             + TypeUuid
@@ -236,7 +236,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
         self
     }
 
-    fn register_prefab_aliased<P>(self, alias: String) -> Self
+    fn register_prefab_aliased<P>(self, alias: String, source_prefab_required: bool) -> Self
     where
         P: PrefabData
             + TypeUuid
@@ -254,7 +254,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
             .unwrap();
 
         prefab_registry
-            .register_aliased::<P>(alias.clone())
+            .register_aliased::<P>(alias.clone(), source_prefab_required)
             .expect("prefab couldn't be registered");
 
         let mut component_registry = self
