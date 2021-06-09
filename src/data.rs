@@ -47,11 +47,18 @@ where
     }
 
     fn construct_instance(&self, world: &mut World, root: Entity) -> Result<()> {
-        let data = world
-            .get_entity_mut(root)
-            .and_then(|e| e.get::<T>().cloned());
-        let data = data.as_ref().unwrap_or_else(|| self);
-        T::construct(&data, world, root)
+        // TODO: quite bit of cloning is required, maybe there's a better ways but I digress
+        let mut entity = world.entity_mut(root);
+        if let Some(data) = entity.get::<T>() {
+            // use the prefab component data to run the construct function
+            data.clone().construct(world, root)
+        } else {
+            // insert missing prefab data component
+            entity.insert(self.clone());
+            // run the construct function using the original copy of the data,
+            // this data could be `Default::default` or the data from the source prefab
+            self.construct(world, root)
+        }
     }
 
     fn type_uuid(&self) -> Uuid {

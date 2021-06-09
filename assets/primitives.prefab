@@ -14,7 +14,6 @@ Prefab(
         UVSpherePrefab(
             transform: (
                 translation: Some((0, 1, 0)),
-                scale: Some((1.0, 1.0, 1.0)),
             )
         ),
         CapsulePrefab(

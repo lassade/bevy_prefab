@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::prelude::{PrefabAppBuilder, PrefabData};
 
+use super::PrimitiveBundle;
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]
@@ -58,13 +60,9 @@ fn common_construct(
     let material = primitives.default_material.clone();
 
     world
-        .spawn()
-        .insert_bundle(PbrBundle {
-            mesh,
-            material,
-            ..Default::default()
-        })
-        .insert(Parent(root));
+        .entity_mut(root)
+        .insert_bundle(PrimitiveBundle::default())
+        .insert_bundle((mesh, material));
 
     Ok(())
 }

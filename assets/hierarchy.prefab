@@ -1,0 +1,31 @@
+Prefab(
+    scene: [
+        CubePrefab(
+            id: 0,
+            transform: (
+                translation: Some((0, -1, 0)),
+                scale: Some((.2, .2, .2)),
+            ),
+        ),
+        CubePrefab(
+            id: 1,
+            transform: (
+                translation: Some((0, 2, 0)),
+            ),
+            parent: Some(0),
+        ),
+        CubePrefab(
+            id: 2,
+            transform: (
+                translation: Some((0, 2, 0)),
+            ),
+            parent: Some(1),
+        ),
+        CubePrefab(
+            transform: (
+                translation: Some((0, 2, 0)),
+            ),
+            parent: Some(2),
+        ),
+    ],
+)

@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::prelude::{PrefabAppBuilder, PrefabData};
 
+use super::PrimitiveBundle;
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Reflect, TypeUuid)]
@@ -18,13 +20,9 @@ impl PrefabData for StaticMeshPrefab {
         let material = self.material.clone();
 
         world
-            .spawn()
-            .insert_bundle(PbrBundle {
-                mesh,
-                material,
-                ..Default::default()
-            })
-            .insert(Parent(root));
+            .entity_mut(root)
+            .insert_bundle(PrimitiveBundle::default())
+            .insert_bundle((mesh, material));
 
         Ok(())
     }
