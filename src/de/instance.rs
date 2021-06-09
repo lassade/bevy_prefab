@@ -106,6 +106,8 @@ impl<'a, 'de> Visitor<'de> for InstanceIdentifier<'a> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// TODO: Prefabs can be added directly into the world without the need of this structure
+// TODO: Remove in preparation to prefab components override
 pub(crate) struct PrefabInstance {
     pub constructor: PrefabConstructFn,
     pub uuid: Uuid,
