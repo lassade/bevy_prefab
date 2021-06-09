@@ -1,10 +1,6 @@
 use std::{fmt, sync::Arc};
 
-use bevy::{
-    ecs::{entity::EntityMap, world::World},
-    prelude::GlobalTransform,
-    transform::components::Parent,
-};
+use bevy::ecs::{entity::EntityMap, world::World};
 use serde::{
     de::{self, DeserializeSeed, EnumAccess, MapAccess, VariantAccess, Visitor},
     Deserialize, Deserializer,
@@ -15,7 +11,7 @@ use crate::{
         ComponentDescriptorRegistry, ComponentEntityMapperRegistry, PrefabDescriptor,
         PrefabDescriptorRegistry,
     },
-    BoxedPrefabData, Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTypeUuid,
+    BoxedPrefabData, Prefab,
 };
 
 mod component;
@@ -113,7 +109,6 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
         let mut defaults = None;
         let mut transform = None;
         let mut world = World::default();
-        let mut nested_prefabs = vec![];
 
         let PrefabBody {
             component_entity_mapper,
@@ -142,51 +137,10 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
                     access.next_value_seed(IdentifiedInstanceSeq {
                         source_to_prefab: &mut source_to_prefab,
                         world: &mut world,
-                        nested_prefabs: &mut nested_prefabs,
                         component_registry,
                         prefab_registry,
                     })?;
                 }
-            }
-        }
-
-        // Spawn blank nested prefab instances
-        for nested in &mut nested_prefabs {
-            let mut blank = world.spawn();
-            let blank_entity = blank.id();
-            source_to_prefab.insert(nested.id, blank_entity);
-
-            // Map prefab entity id from source to prefab space (required for the next step)
-            nested.id = blank_entity;
-
-            blank.insert_bundle((
-                nested.source.clone().unwrap_or_default(),
-                GlobalTransform::default(),
-                nested.transform.clone(),
-                PrefabNotInstantiatedTag { _marker: () },
-            ));
-
-            if nested.source.is_none() {
-                // Source isn't available, insert construct function definition
-                blank.insert(PrefabConstruct(nested.constructor));
-            } else {
-                // Validate source type
-                blank.insert(PrefabTypeUuid(nested.uuid));
-            }
-
-            if let Some(prefab_data) = &nested.data {
-                // Insert the PrefabData (down casted) in the root Entity so it can be available during runtime
-                prefab_data.0.copy_to_instance(&mut blank);
-            }
-        }
-
-        // Parent all nested prefabs (when needed)
-        for nested in &mut nested_prefabs {
-            if let Some(source_parent) = nested.parent {
-                let prefab_parent = source_to_prefab
-                    .get(source_parent)
-                    .map_err(de::Error::custom)?;
-                world.entity_mut(nested.id).insert(Parent(prefab_parent));
             }
         }
 

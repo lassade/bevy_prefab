@@ -6,8 +6,7 @@ use bevy::{
         entity::{Entity, EntityMap},
         world::World,
     },
-    prelude::Handle,
-    reflect::Uuid,
+    prelude::{GlobalTransform, Handle, Parent},
     utils::HashSet,
 };
 use rand::{prelude::ThreadRng, RngCore};
@@ -18,10 +17,9 @@ use serde::{
 
 use crate::{
     de::component::IdentifiedComponentSeq,
-    registry::{
-        ComponentDescriptorRegistry, PrefabConstructFn, PrefabDescriptor, PrefabDescriptorRegistry,
-    },
-    BoxedPrefabData, Prefab, PrefabTransformOverride,
+    registry::{ComponentDescriptorRegistry, PrefabDescriptor, PrefabDescriptorRegistry},
+    BoxedPrefabData, Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTransformOverride,
+    PrefabTypeUuid,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -106,34 +104,21 @@ impl<'a, 'de> Visitor<'de> for InstanceIdentifier<'a> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// TODO: Prefabs can be added directly into the world without the need of this structure
-// TODO: Remove in preparation to prefab components override
-pub(crate) struct PrefabInstance {
-    pub constructor: PrefabConstructFn,
-    pub uuid: Uuid,
-    pub id: Entity,
-    /// Prefab source file, procedural prefabs may not require a source to base it self from
-    pub source: Option<Handle<Prefab>>,
-    // overrides
-    pub parent: Option<Entity>,
-    pub transform: PrefabTransformOverride,
-    // data feed to construct script
-    pub data: Option<BoxedPrefabData>,
-}
-
 const PREFAB_INSTANCE_FIELDS: &'static [&'static str] =
     &["id", "source", "transform", "parent", "data"];
 
 struct PrefabInstanceDeserializer<'a> {
     id_validation: &'a mut IdValidation,
+    world: &'a mut World,
+    source_to_prefab: &'a mut EntityMap,
     descriptor: PrefabDescriptor,
 }
 
 impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
-    type Value = PrefabInstance;
+    type Value = ();
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a `PrefabInstance` struct")
+        formatter.write_str("a `Prefab` instance")
     }
 
     fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
@@ -151,13 +136,15 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         }
 
         let mut id = None;
-        let mut source = None;
+        let mut source: Option<Handle<Prefab>> = None;
         let mut transform = None;
         let mut parent = None;
         let mut data = None;
 
         let PrefabInstanceDeserializer {
             id_validation,
+            world,
+            source_to_prefab,
             descriptor,
         } = self;
 
@@ -220,17 +207,42 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
 
         let id = id.unwrap_or_else(|| id_validation.generate_unique());
         let parent = parent.unwrap_or_default();
-        let transform = transform.unwrap_or_default();
+        let transform: PrefabTransformOverride = transform.unwrap_or_default();
 
-        Ok(PrefabInstance {
-            constructor,
-            uuid,
-            id,
-            source,
-            parent,
+        // spawn blank nested prefab instance
+        let mut blank = world.spawn();
+
+        let blank_entity = blank.id();
+        source_to_prefab.insert(id, blank_entity);
+
+        blank.insert_bundle((
+            source.clone().unwrap_or_default(),
+            GlobalTransform::default(),
             transform,
-            data,
-        })
+            PrefabNotInstantiatedTag { _marker: () },
+        ));
+
+        if source.is_none() {
+            // source isn't available, insert construct function definition
+            blank.insert(PrefabConstruct(constructor));
+        } else {
+            // validate source type
+            blank.insert(PrefabTypeUuid(uuid));
+        }
+
+        if let Some(prefab_data) = &data {
+            // insert the PrefabData (down casted) in the root Entity so it can be available during runtime
+            prefab_data.0.copy_to_instance(&mut blank);
+        }
+
+        // parent all nested prefabs (when needed)
+        if let Some(source_parent) = parent {
+            // NOTE here we don't convert the `source_parent` entity because
+            // it will be done at in the next stage of deserialization
+            world.entity_mut(blank_entity).insert(Parent(source_parent));
+        }
+
+        Ok(())
     }
 }
 
@@ -334,7 +346,6 @@ struct IdentifiedInstance<'a> {
     id_validation: &'a mut IdValidation,
     source_to_prefab: &'a mut EntityMap,
     world: &'a mut World,
-    nested_prefabs: &'a mut Vec<PrefabInstance>,
     component_registry: &'a ComponentDescriptorRegistry,
     prefab_registry: &'a PrefabDescriptorRegistry,
 }
@@ -366,7 +377,6 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
             id_validation,
             source_to_prefab,
             world,
-            nested_prefabs,
             component_registry,
             prefab_registry,
         } = self;
@@ -383,16 +393,15 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
                     component_registry,
                 },
             ),
-            Identifier::Prefab(descriptor) => {
-                nested_prefabs.push(variant.struct_variant(
-                    PREFAB_INSTANCE_FIELDS,
-                    PrefabInstanceDeserializer {
-                        id_validation,
-                        descriptor,
-                    },
-                )?);
-                Ok(())
-            }
+            Identifier::Prefab(descriptor) => variant.struct_variant(
+                PREFAB_INSTANCE_FIELDS,
+                PrefabInstanceDeserializer {
+                    id_validation,
+                    world,
+                    source_to_prefab,
+                    descriptor,
+                },
+            ),
         }
     }
 }
@@ -402,7 +411,6 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
 pub(crate) struct IdentifiedInstanceSeq<'a> {
     pub source_to_prefab: &'a mut EntityMap,
     pub world: &'a mut World,
-    pub nested_prefabs: &'a mut Vec<PrefabInstance>,
     pub component_registry: &'a ComponentDescriptorRegistry,
     pub prefab_registry: &'a PrefabDescriptorRegistry,
 }
@@ -433,7 +441,6 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
         let IdentifiedInstanceSeq {
             source_to_prefab,
             world,
-            nested_prefabs,
             component_registry,
             prefab_registry,
         } = self;
@@ -444,7 +451,6 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
             id_validation,
             source_to_prefab,
             world,
-            nested_prefabs,
             component_registry,
             prefab_registry,
         })? {
@@ -498,7 +504,6 @@ mod tests {
         let id_validation = &mut IdValidation::empty();
         let mut source_to_prefab = EntityMap::default();
         let mut world = World::default();
-        let mut nested_prefabs = vec![];
 
         let input = r#"Lamp(
             id: 95649,
@@ -520,7 +525,6 @@ mod tests {
             id_validation,
             source_to_prefab: &mut source_to_prefab,
             world: &mut world,
-            nested_prefabs: &mut nested_prefabs,
             component_registry: &component_registry,
             prefab_registry: &prefab_registry,
         };
@@ -537,7 +541,6 @@ mod tests {
             id_validation,
             source_to_prefab: &mut source_to_prefab,
             world: &mut world,
-            nested_prefabs: &mut nested_prefabs,
             component_registry: &component_registry,
             prefab_registry: &prefab_registry,
         };
