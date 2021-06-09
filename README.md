@@ -64,7 +64,7 @@ Prefab (
 
 ## TODO
 
-- tests
+- use cases and tests
 - query about prefab loading status
 - hot reload
 - send prefab events instantiated or modified
