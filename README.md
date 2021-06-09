@@ -64,7 +64,6 @@ Prefab (
 
 ## TODO
 
-- fix parent bug
 - tests
 - query about prefab loading status
 - hot reload

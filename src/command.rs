@@ -21,7 +21,6 @@ where
             PrefabNotInstantiatedTag { _marker: () },
         ));
         root.insert_bundle(self.overrides);
-        info!("spawn prefab");
     }
 }
 

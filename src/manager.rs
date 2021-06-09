@@ -138,7 +138,8 @@ fn prefab_spawner(
                     transform.scale = scale;
                 }
             }
-            root.insert(transform);
+            // TODO: `Children` added where because of a bug on bevy's `Commands`, once is fixed he should be removed
+            root.insert_bundle((GlobalTransform::default(), transform, Children::default()));
 
             // Run construct function
             if let Some(prefab_construct) = root.remove::<PrefabConstruct>() {

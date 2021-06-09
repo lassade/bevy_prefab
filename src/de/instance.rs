@@ -137,7 +137,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
 
         let mut id = None;
         let mut source: Option<Handle<Prefab>> = None;
-        let mut transform = None;
+        let mut transform_override = None;
         let mut parent = None;
         let mut data = None;
 
@@ -173,10 +173,10 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
                     source = Some(access.next_value()?);
                 }
                 Field::Transform => {
-                    if transform.is_some() {
+                    if transform_override.is_some() {
                         return Err(de::Error::duplicate_field("transform"));
                     }
-                    transform = Some(access.next_value()?);
+                    transform_override = Some(access.next_value()?);
                 }
                 Field::Parent => {
                     if parent.is_some() {
@@ -207,7 +207,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
 
         let id = id.unwrap_or_else(|| id_validation.generate_unique());
         let parent = parent.unwrap_or_default();
-        let transform: PrefabTransformOverride = transform.unwrap_or_default();
+        let transform_override: PrefabTransformOverride = transform_override.unwrap_or_default();
 
         // spawn blank nested prefab instance
         let mut blank = world.spawn();
@@ -217,8 +217,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
 
         blank.insert_bundle((
             source.clone().unwrap_or_default(),
-            GlobalTransform::default(),
-            transform,
+            transform_override,
             PrefabNotInstantiatedTag { _marker: () },
         ));
 
