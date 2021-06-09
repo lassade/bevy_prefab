@@ -6,7 +6,7 @@ use bevy::{
         entity::{Entity, EntityMap},
         world::World,
     },
-    prelude::{GlobalTransform, Handle, Parent},
+    prelude::{Handle, Parent},
     utils::HashSet,
 };
 use rand::{prelude::ThreadRng, RngCore};
