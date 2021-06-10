@@ -33,7 +33,7 @@ use crate::registry::PrefabConstructFn;
 #[derive(Debug, TypeUuid)]
 #[uuid = "58bc173f-8f5e-4200-88bc-9f12ae9f87cc"]
 pub struct Prefab {
-    defaults: BoxedPrefabData,
+    data: BoxedPrefabData,
     transform: Transform,
     world: World,
 }

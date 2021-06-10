@@ -16,7 +16,7 @@ The example is given in `ron` file format, but the prefab system can be (de)seri
 ```json5
 Prefab (
     // (optional) prefab data, it will be inserted as a component of the prefab root entity
-    defaults: (),
+    data: (),
     // (optional) prefab root transform
     transform: (),
     // list of instances

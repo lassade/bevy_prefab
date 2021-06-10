@@ -56,7 +56,7 @@ fn prefab_spawner(
             // so as a consequence the exact source of error will be hard to determine
             let mut root = world.entity_mut(root_entity);
             if let Some(PrefabTypeUuid(uuid)) = root.get() {
-                let source = prefab.defaults.0.type_uuid();
+                let source = prefab.data.0.type_uuid();
                 if source != *uuid {
                     // Fail without loading prefab
                     root.remove::<PrefabNotInstantiatedTag>();
@@ -123,7 +123,7 @@ fn prefab_spawner(
             root.remove::<PrefabNotInstantiatedTag>();
 
             // Use prefab source default if no data is present
-            prefab.defaults.0.copy_to_instance(&mut root);
+            prefab.data.0.copy_to_instance(&mut root);
 
             // Override prefab transformations with instance's transform
             let mut transform = prefab.transform.clone();
@@ -146,7 +146,7 @@ fn prefab_spawner(
                 (prefab_construct.0)(world, root_entity).unwrap();
             } else {
                 prefab
-                    .defaults
+                    .data
                     .0
                     .construct_instance(world, root_entity)
                     .unwrap();

@@ -100,13 +100,13 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
         #[derive(Deserialize)]
         #[serde(field_identifier, rename_all = "lowercase")]
         enum Field {
-            Defaults,
+            Data,
             Transform,
             Scene,
         }
 
         let mut source_to_prefab = EntityMap::default();
-        let mut defaults = None;
+        let mut data = None;
         let mut transform = None;
         let mut world = World::default();
 
@@ -121,11 +121,11 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
 
         while let Some(key) = access.next_key()? {
             match key {
-                Field::Defaults => {
-                    if defaults.is_some() {
-                        return Err(de::Error::duplicate_field("defaults"));
+                Field::Data => {
+                    if data.is_some() {
+                        return Err(de::Error::duplicate_field("data"));
                     }
-                    defaults = Some(access.next_value_seed(&data_seed)?);
+                    data = Some(access.next_value_seed(&data_seed)?);
                 }
                 Field::Transform => {
                     if transform.is_some() {
@@ -149,10 +149,10 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             .map_world_components(&mut world, &source_to_prefab)
             .map_err(de::Error::custom)?;
 
-        let defaults = defaults.unwrap_or_else(|| (data_seed.descriptor.default)());
+        let data = data.unwrap_or_else(|| (data_seed.descriptor.default)());
         let transform = transform.unwrap_or_default();
         Ok(Prefab {
-            defaults,
+            data,
             transform,
             world,
         })
@@ -161,7 +161,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-const PREFAB_FIELDS: &'static [&'static str] = &["defaults", "scene"];
+const PREFAB_FIELDS: &'static [&'static str] = &["data", "scene"];
 
 pub(crate) struct PrefabDeserializerInner {
     pub component_entity_mapper: ComponentEntityMapperRegistry,

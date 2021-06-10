@@ -92,7 +92,7 @@ impl Plugin for PrefabPlugin {
         prefabs.set_untracked(
             Handle::<Prefab>::default(),
             Prefab {
-                defaults: BoxedPrefabData(Box::new(BlankPrefab)),
+                data: BoxedPrefabData(Box::new(BlankPrefab)),
                 transform: Transform::default(),
                 world: World::default(),
             },

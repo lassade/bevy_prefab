@@ -3,6 +3,11 @@ use bevy::{prelude::*, render::render_graph::base::MainPass};
 pub mod objects;
 pub mod primitives;
 
+pub use objects::*;
+pub use primitives::*;
+
+///////////////////////////////////////////////////////////////////////////////
+
 /// Equivalent to [`PbrBundle`] but without the transforms, mesh and material components
 #[derive(Bundle)]
 struct PbrPrimitiveBundle {
