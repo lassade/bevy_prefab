@@ -1,0 +1,11 @@
+BlinkingLight(
+    data: (
+        color: (1, 0, 0, 1),
+        speed: 0.2,
+    ),
+    scene: [
+        PointLightPrefab (
+            //data: () // TODO
+        )
+    ],
+)

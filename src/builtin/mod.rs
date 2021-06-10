@@ -5,14 +5,14 @@ pub mod primitives;
 
 /// Equivalent to [`PbrBundle`] but without the transforms, mesh and material components
 #[derive(Bundle)]
-struct PrimitiveBundle {
+struct PbrPrimitiveBundle {
     main_pass: MainPass,
     draw: Draw,
     visible: Visible,
     render_pipelines: RenderPipelines,
 }
 
-impl Default for PrimitiveBundle {
+impl Default for PbrPrimitiveBundle {
     fn default() -> Self {
         let PbrBundle {
             mesh: _,

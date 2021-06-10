@@ -1,0 +1,11 @@
+Prefab(
+    scene: [
+        Rotating(
+            data: (
+                color: (1, 0, 0, 1),
+                radius: 1,
+                velocity: (0, 0.2, 0)
+            ),
+        ),
+    ],
+)

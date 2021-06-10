@@ -1,0 +1,7 @@
+Prefab(
+    scene: [
+        BlinkingLight(
+            source: External("custom_prefab_source.prefab"),
+        ),
+    ],
+)
