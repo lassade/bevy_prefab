@@ -1,10 +1,6 @@
-use bevy::{asset::AssetServerSettings, prelude::*};
+use bevy::{asset::AssetServerSettings, prelude::*, reflect::TypeUuid};
 use bevy_prefab::{builtin::CubePrefab, prelude::*};
-
-struct BlinkingLightPrefab {
-    color: Color,
-    speed: f32,
-}
+use serde::{Deserialize, Serialize};
 
 fn main() {
     let asset_folder = std::env::current_dir()
@@ -40,9 +36,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_prefab(asset_server.load("custom_prefab.prefab"));
 }
 
-/// rotates every [`CubePrefab`] in the scene.
-///
-/// this shows how custom logic in form of a system an be implemented for each prefab type
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect, TypeUuid)]
+#[serde(default)]
+#[uuid = "0833291b-ecc0-4fff-ae45-42ee8698dd43"]
+struct BlinkingLightPrefab {
+    color: Color,
+    speed: f32,
+    light_entity: Entity,
+}
+
+impl Default for BlinkingLightPrefab {
+    fn default() -> Self {
+        todo!()
+    }
+}
+
+impl PrefabData for BlinkingLightPrefab {
+    fn construct(&self, world: &mut World, root: Entity) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
 fn rotate_cubes(time: Res<Time>, mut query: Query<&mut Transform, With<CubePrefab>>) {
     let q = Quat::from_rotation_y(0.5 * time.delta_seconds());
     for mut transform in query.iter_mut() {

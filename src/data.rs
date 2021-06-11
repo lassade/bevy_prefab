@@ -1,15 +1,19 @@
-use std::fmt::Debug;
+use std::{any::Any, collections::hash_map::Entry, fmt::Debug};
 
 use anyhow::Result;
 use bevy::{
     ecs::{
         component::Component,
-        entity::Entity,
+        entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
         world::{EntityMut, World},
     },
-    reflect::{TypeUuid, Uuid},
+    reflect::{Struct, TypeUuid, Uuid},
+    utils::HashMap,
 };
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{self, DeserializeSeed, MapAccess},
+    Deserialize, Serialize,
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -76,4 +80,122 @@ impl PrefabData for BlankPrefab {
     fn construct(&self, _: &mut World, _: Entity) -> Result<()> {
         Ok(())
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+pub trait FieldOverride {
+    fn apply(&self, target: &mut dyn Any);
+    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
+}
+
+pub(crate) struct FieldOverrideDescriptor {
+    pub de: fn(&mut dyn erased_serde::Deserializer) -> Result<Box<dyn FieldOverride>>,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for &'a FieldOverrideDescriptor {
+    type Value = Box<dyn FieldOverride>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
+        (self.de)(&mut deserializer).map_err(de::Error::custom)
+    }
+}
+
+pub struct StructOverridesDescriptor {
+    fields: HashMap<String, FieldOverrideDescriptor>,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for &'a StructOverridesDescriptor {
+    type Value = StructOverrides;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_struct("StructOverrides", &[], self)
+    }
+}
+
+impl<'a, 'de> de::Visitor<'de> for &'a StructOverridesDescriptor {
+    type Value = StructOverrides;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a valid `PrefabData` map")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut overrides = StructOverrides {
+            fields: Default::default(),
+        };
+        while let Some(key) = map.next_key::<String>()? {
+            let field_descriptor = self
+                .fields
+                .get(&key)
+                .ok_or_else(|| de::Error::unknown_field(key.as_str(), &[]))?;
+
+            match overrides.fields.entry(key) {
+                Entry::Occupied(occupied) => {
+                    return Err(de::Error::custom(format!(
+                        "duplicate field `{}`",
+                        occupied.key()
+                    )));
+                }
+                Entry::Vacant(vacant) => {
+                    vacant.insert(map.next_value_seed(field_descriptor)?);
+                }
+            }
+        }
+        Ok(overrides)
+    }
+}
+
+pub struct StructOverrides {
+    fields: HashMap<String, Box<dyn FieldOverride>>,
+}
+
+impl MapEntities for StructOverrides {
+    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+        for (_, v) in &mut self.fields {
+            v.map_entities(entity_map)?;
+        }
+        Ok(())
+    }
+}
+
+impl FieldOverride for StructOverrides {
+    fn apply(&self, target: &mut dyn Any) {
+        for (_, v) in &self.fields {
+            v.apply(target);
+        }
+    }
+
+    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+        MapEntities::map_entities(self, entity_map)
+    }
+}
+
+fn register<T: Default + Struct + 'static>() {
+    let mut struct_descriptor = StructOverridesDescriptor {
+        fields: Default::default(),
+    };
+
+    let temp = T::default();
+    for (i, field) in temp.iter_fields().enumerate() {
+        let name = temp.name_at(i).unwrap();
+        let id = field.type_id();
+
+        // let field_descriptor: FieldOverrideDescriptor; // self.find_field(id)
+        // struct_descriptor.fields.insert(name.to_string(), field_descriptor);
+    }
+
+    let as_field_descriptor = FieldOverrideDescriptor {
+        de: |deserializer| Ok(Box::new(struct_descriptor.deserialize(deserializer)?)),
+    };
 }
