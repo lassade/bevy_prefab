@@ -5,7 +5,7 @@ use bevy::{
     ecs::entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     math::prelude::*,
     prelude::warn,
-    reflect::{Reflect, ReflectRef, Struct},
+    reflect::{Reflect, ReflectMut, ReflectRef, Struct},
     utils::HashMap,
 };
 use serde::{
@@ -16,23 +16,40 @@ use serde::{
 ///////////////////////////////////////////////////////////////////////////////
 
 pub trait Override {
-    fn apply(&self, target: &mut dyn Reflect);
+    fn apply_override(&self, target: &mut dyn Reflect);
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
+    fn clone_as_boxed_override(&self) -> Box<dyn Override>;
+}
+
+impl Clone for Box<dyn Override> {
+    #[inline]
+    fn clone(&self) -> Self {
+        self.clone_as_boxed_override()
+    }
 }
 
 macro_rules! primitive_data_override {
     ($t:ty) => {
         impl Override for $t {
-            fn apply(&self, target: &mut dyn Reflect) {
+            fn apply_override(&self, target: &mut dyn Reflect) {
                 if let Some(target) = target.downcast_mut::<$t>() {
                     *target = *self;
                 } else {
-                    todo!("invalid override")
+                    // TODO: apply_override warnings need a better source identification
+                    warn!(
+                        "`{}` can't be overwritten by `{}`",
+                        target.type_name(),
+                        stringify!($t)
+                    );
                 }
             }
 
             fn map_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
                 Ok(())
+            }
+
+            fn clone_as_boxed_override(&self) -> Box<dyn Override> {
+                Box::new(*self)
             }
         }
     };
@@ -50,17 +67,21 @@ primitive_data_override!(f32);
 primitive_data_override!(f64);
 
 impl Override for Entity {
-    fn apply(&self, target: &mut dyn Reflect) {
+    fn apply_override(&self, target: &mut dyn Reflect) {
         if let Some(target) = target.downcast_mut::<Entity>() {
             *target = *self;
         } else {
-            todo!("invalid override")
+            warn!("`{}` can't be overwritten by `Entity`", target.type_name());
         }
     }
 
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
         *self = entity_map.get(*self)?;
         Ok(())
+    }
+
+    fn clone_as_boxed_override(&self) -> Box<dyn Override> {
+        Box::new(*self)
     }
 }
 
@@ -110,7 +131,7 @@ macro_rules! vector_data_override {
         }
 
         impl Override for $override {
-            fn apply(&self, target: &mut dyn Reflect) {
+            fn apply_override(&self, target: &mut dyn Reflect) {
                 if let Some(target) = target.downcast_mut::<$base>() {
                     $(
                         if let Some($field) = self.$field {
@@ -118,28 +139,42 @@ macro_rules! vector_data_override {
                         }
                     )*
                 } else {
-                    todo!("invalid override")
+                    warn!(
+                        "`{}` can't be overwritten by `{}`",
+                        target.type_name(),
+                        stringify!($override)
+                    );
                 }
             }
 
             fn map_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
                 Ok(())
             }
+
+            fn clone_as_boxed_override(&self) -> Box<dyn Override> {
+                Box::new(self.clone())
+            }
         }
     };
 }
 
+/// Overrides each field of a [`Vec2`] individually
+#[derive(Clone)]
 struct Vec2Override {
     x: Option<f32>,
     y: Option<f32>,
 }
 
+/// Overrides each field of a [`Vec3`] individually
+#[derive(Clone)]
 struct Vec3Override {
     x: Option<f32>,
     y: Option<f32>,
     z: Option<f32>,
 }
 
+/// Overrides each field of a [`Vec4`] individually
+#[derive(Clone)]
 struct Vec4Override {
     x: Option<f32>,
     y: Option<f32>,
@@ -225,6 +260,7 @@ impl<'a, 'de> de::Visitor<'de> for &'a StructOverrideDescriptor {
     }
 }
 
+#[derive(Clone)]
 pub struct StructOverride {
     fields: HashMap<String, Box<dyn Override>>,
 }
@@ -239,17 +275,32 @@ impl MapEntities for StructOverride {
 }
 
 impl Override for StructOverride {
-    fn apply(&self, target: &mut dyn Reflect) {
-        todo!();
-        // for (_, v) in &self.fields {
-        //     v.apply(target);
-        // }
+    fn apply_override(&self, target: &mut dyn Reflect) {
+        match target.reflect_mut() {
+            ReflectMut::Struct(target) => {
+                for i in 0..target.field_len() {
+                    if let Some(field_override) = self.fields.get(target.name_at(i).unwrap()) {
+                        field_override.apply_override(target.field_at_mut(i).unwrap());
+                    }
+                }
+            }
+            _ => warn!(
+                "`{}` can't be overwritten by `StructOverride`, only struct is supported",
+                target.type_name()
+            ),
+        }
     }
 
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
         MapEntities::map_entities(self, entity_map)
     }
+
+    fn clone_as_boxed_override(&self) -> Box<dyn Override> {
+        Box::new(self.clone())
+    }
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 pub struct PrefabOverrideRegistry {
     registry: HashMap<TypeId, OverrideDescriptor>,
@@ -308,6 +359,8 @@ impl PrefabOverrideRegistry {
             let name = value.name_at(i).unwrap();
             let id = field.type_id();
 
+            // TODO: skip private fields
+
             let descriptor = if let Some(descriptor) = self.registry.get(&id) {
                 descriptor
             } else {
@@ -316,9 +369,11 @@ impl PrefabOverrideRegistry {
                     self.registry.get(&id).unwrap()
                 } else {
                     warn!(
-                        "field `{}` of `{}` doesn't support overriding",
+                        "field `{}` of `{}` doesn't support overriding, consider making the field private or registering it's type with `app.register_prefab_override::<{},{}>()`",
                         name,
-                        value.type_name()
+                        value.type_name(),
+                        field.type_name(),
+                        field.type_name(),
                     );
                     continue;
                 }
