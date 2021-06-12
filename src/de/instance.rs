@@ -148,7 +148,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             descriptor,
         } = self;
 
-        let uuid = (descriptor.uuid)();
+        let uuid = descriptor.uuid;
         let source_prefab_required = descriptor.source_prefab_required;
         let constructor = descriptor.construct;
         let data_seed = PrefabInstanceDataOverrides { descriptor };
@@ -221,7 +221,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             PrefabNotInstantiatedTag { _marker: () },
         ));
 
-        if source.is_none() {
+        if !source_prefab_required {
             // source isn't available, insert construct function definition
             blank.insert(PrefabConstruct(constructor));
         } else {
@@ -237,7 +237,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         if let Some(source_parent) = parent {
             // NOTE here we don't convert the `source_parent` entity because
             // it will be done at in the next stage of deserialization
-            world.entity_mut(blank_entity).insert(Parent(source_parent));
+            blank.insert(Parent(source_parent));
         }
 
         Ok(())

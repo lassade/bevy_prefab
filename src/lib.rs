@@ -40,6 +40,7 @@ pub struct Prefab {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// TODO: use `Override` trait instead
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct PrefabTransformOverride {

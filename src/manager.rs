@@ -51,14 +51,14 @@ fn prefab_spawner(
                 }
             };
 
-            // Validate prefab type with the expected type, sadly this can't be done during
+            // validate prefab type with the expected type, sadly this can't be done during
             // de-serialization because the prefab might not be available at that time,
             // so as a consequence the exact source of error will be hard to determine
             let mut root = world.entity_mut(root_entity);
             if let Some(PrefabTypeUuid(uuid)) = root.get() {
                 let source = prefab.data.0.type_uuid();
                 if source != *uuid {
-                    // Fail without loading prefab
+                    // fail without loading prefab
                     root.remove::<PrefabNotInstantiatedTag>();
                     root.insert(PrefabErrorTag(PrefabError::WrongExpectedSourcePrefab));
                     error!(
@@ -71,7 +71,7 @@ fn prefab_spawner(
 
             let mut prefab_to_instance = EntityMap::default();
 
-            // Copy prefab entities over
+            // copy prefab entities over
             for archetype in prefab.world.archetypes().iter() {
                 for prefab_entity in archetype.entities() {
                     let instance_entity = *prefab_to_instance
@@ -85,7 +85,7 @@ fn prefab_spawner(
                         if let Some(descriptor) =
                             component_registry.find_by_type(component_info.type_id().unwrap())
                         {
-                            // Copy prefab from his world over the current active world
+                            // copy prefab from his world over the current active world
                             (descriptor.copy)(
                                 &prefab.world,
                                 world,
@@ -93,7 +93,7 @@ fn prefab_spawner(
                                 instance_entity,
                             );
                         } else {
-                            // Hard error, must be fixed by user
+                            // hard error, must be fixed by user
                             panic!(
                                 "prefab component `{}` not registered",
                                 component_info.name()
@@ -106,12 +106,12 @@ fn prefab_spawner(
             for instance_entity in prefab_to_instance.values() {
                 let mut instance = world.entity_mut(instance_entity);
 
-                // Map entities components to instance space
+                // map entities components to instance space
                 component_entity_mapper
                     .map_entity_components(&mut instance, &prefab_to_instance)
                     .unwrap();
 
-                // Parent all root prefab entities under the instance root
+                // parent all root prefab entities under the instance root
                 if instance.get::<Parent>().is_none() {
                     instance.insert(Parent(root_entity));
                 }
@@ -119,13 +119,10 @@ fn prefab_spawner(
 
             let mut root = world.entity_mut(root_entity);
 
-            // Clear not instantiate tag
+            // clear not instantiated tag
             root.remove::<PrefabNotInstantiatedTag>();
 
-            // Use prefab source default if no data is present
-            prefab.data.0.copy_to_instance(&mut root);
-
-            // Override prefab transformations with instance's transform
+            // override prefab transformations with instance's transform
             let mut transform = prefab.transform.clone();
             if let Some(transform_overrides) = root.remove::<PrefabTransformOverride>() {
                 if let Some(translation) = transform_overrides.translation {
@@ -141,7 +138,7 @@ fn prefab_spawner(
             // TODO: `Children` added where because of a bug on bevy's `Commands`, once is fixed he should be removed
             root.insert_bundle((GlobalTransform::default(), transform, Children::default()));
 
-            // Run construct function
+            // apply overrides and run construct function
             if let Some(prefab_construct) = root.remove::<PrefabConstruct>() {
                 (prefab_construct.0)(world, root_entity).unwrap();
             } else {

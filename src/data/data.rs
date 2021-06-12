@@ -2,14 +2,12 @@ use std::fmt::Debug;
 
 use anyhow::Result;
 use bevy::{
-    ecs::{
-        component::Component,
-        entity::Entity,
-        world::{EntityMut, World},
-    },
+    ecs::{component::Component, entity::Entity, world::World},
     reflect::{Reflect, TypeUuid, Uuid},
 };
 use serde::{Deserialize, Serialize};
+
+use super::BoxedPrefabOverrides;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -25,11 +23,8 @@ pub struct BoxedPrefabData(pub Box<dyn PrefabData>);
 
 /// Helper default functions
 pub trait PrefabDataHelper {
-    /// Copies it self in the prefab instance so that self will be available during runtime,
-    /// but doesn't override the previously if already has
-    fn copy_to_instance(&self, instance: &mut EntityMut);
-
-    /// Constructs prefabs using the instance data or default to this data
+    /// Constructs prefabs instances using the instance data or using self as a default
+    /// is also responsible to apply any prefab overrides
     fn construct_instance(&self, world: &mut World, root: Entity) -> Result<()>;
 
     /// Uuid from [`TypeUuid`]
@@ -38,26 +33,48 @@ pub trait PrefabDataHelper {
 
 impl<T> PrefabDataHelper for T
 where
-    T: PrefabData + TypeUuid + Clone + Component,
+    T: PrefabData + TypeUuid + Reflect + Clone + Component,
 {
-    fn copy_to_instance(&self, entity: &mut EntityMut) {
-        if !entity.contains::<T>() {
-            entity.insert(self.clone());
-        }
-    }
-
     fn construct_instance(&self, world: &mut World, root: Entity) -> Result<()> {
         // TODO: quite bit of cloning is required, maybe there's a better ways but I digress
         let mut entity = world.entity_mut(root);
-        if let Some(data) = entity.get::<T>() {
+
+        let overrides = entity
+            .get::<BoxedPrefabOverrides>()
+            .map(|overrides| 
+                // SAFETY used to apply overrides in the prefab data,
+                // no changes will be made in the entity archetype so no data will be invalidated
+                unsafe { &*(overrides as *const BoxedPrefabOverrides) }
+            );
+
+        if let Some(mut data) = entity.get_mut::<T>() {
+            // apply overrides
+            if let Some(overrides) = overrides {
+                overrides.0.apply_override(&mut *data);
+            }
+            
             // use the prefab component data to run the construct function
             data.clone().construct(world, root)
         } else {
-            // insert missing prefab data component
-            entity.insert(self.clone());
-            // run the construct function using the original copy of the data,
-            // this data could be `Default::default` or the data from the source prefab
-            self.construct(world, root)
+            // create defaults
+            let mut data = self.clone();
+            if let Some(overrides) = overrides {
+                // apply overrides
+                overrides.0.apply_override(&mut data);
+
+                // insert missing prefab data component
+                entity.insert(data.clone());
+    
+                // run the prefab construct function using it's data
+                data.construct(world, root)
+            } else {
+                // fast code path since no overrides where necessary less data cloning is required
+                entity.insert(data);
+    
+                // run the construct function using the original copy of the data,
+                // this data could be `Default::default` or the data from the source prefab
+                self.construct(world, root)
+            }
         }
     }
 
