@@ -8,6 +8,7 @@
 2. Customizable prefab types
 3. Data driven
 4. Non-blocking asset loading (asset serialization still locks, but that's inherited from bevy)
+5. Prefab data overrides with a custom level of granularity
 
 ## Format Overview
 
@@ -48,7 +49,7 @@ Prefab (
             // (optional) 
             parent: Some(67234),
             // (optional) prefab data used to modify this instance, source prefab defaults are used when missing
-            data: (
+            overrides: (
                 light_color: Rgba( red: 1, green: 0, blue: 0, alpha: 1),
                 light_strength: 2,
             ),
@@ -56,7 +57,7 @@ Prefab (
         // fully procedural prefab
         CubePrefab (
             transform: ( position: Some((0, 1, 0), ),
-            data: ( radius: 2, )
+            overrides: ( radius: 2, )
         )
     ],
 )

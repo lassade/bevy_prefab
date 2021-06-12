@@ -178,25 +178,18 @@ pub trait PrefabAppBuilder: Sized {
 
     fn register_prefab<P>(self, source_prefab_required: bool) -> Self
     where
-        P: PrefabData
-            + TypeUuid
-            + Default
-            + Clone
-            + Send
-            + Sync
-            + for<'de> Deserialize<'de>
-            + 'static,
+        P: PrefabData + TypeUuid + Default + Struct + Clone + for<'de> Deserialize<'de>,
     {
         self.register_prefab_aliased::<P>(shorten_name(type_name::<P>()), source_prefab_required)
     }
 
     fn register_prefab_mappable_component_aliased<C>(self, alias: String) -> Self
     where
-        C: Component + MapEntities + Clone + for<'de> Deserialize<'de> + 'static;
+        C: Component + MapEntities + Clone + for<'de> Deserialize<'de>;
 
     fn register_prefab_component_aliased<C>(self, alias: String) -> Self
     where
-        C: Component + Clone + for<'de> Deserialize<'de> + 'static;
+        C: Component + Clone + for<'de> Deserialize<'de>;
 
     fn register_prefab_component_aliased_non_serializable<C>(self, alias: String) -> Self
     where
@@ -204,20 +197,13 @@ pub trait PrefabAppBuilder: Sized {
 
     fn register_prefab_aliased<P>(self, alias: String, source_prefab_required: bool) -> Self
     where
-        P: PrefabData
-            + TypeUuid
-            + Default
-            + Clone
-            + Send
-            + Sync
-            + for<'de> Deserialize<'de>
-            + 'static;
+        P: PrefabData + TypeUuid + Default + Struct + Clone + for<'de> Deserialize<'de>;
 }
 
 impl PrefabAppBuilder for &mut AppBuilder {
     fn register_prefab_mappable_component_aliased<C>(self, alias: String) -> Self
     where
-        C: Component + MapEntities + Clone + for<'de> Deserialize<'de> + 'static,
+        C: Component + MapEntities + Clone + for<'de> Deserialize<'de>,
     {
         let builder = self.register_prefab_component_aliased::<C>(alias);
 
@@ -234,7 +220,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
 
     fn register_prefab_component_aliased<C>(self, alias: String) -> Self
     where
-        C: Component + Clone + for<'de> Deserialize<'de> + 'static,
+        C: Component + Clone + for<'de> Deserialize<'de>,
     {
         let mut component_registry = self
             .app
@@ -268,14 +254,7 @@ impl PrefabAppBuilder for &mut AppBuilder {
 
     fn register_prefab_aliased<P>(self, alias: String, source_prefab_required: bool) -> Self
     where
-        P: PrefabData
-            + TypeUuid
-            + Default
-            + Clone
-            + Send
-            + Sync
-            + for<'de> Deserialize<'de>
-            + 'static,
+        P: PrefabData + TypeUuid + Default + Struct + Clone + for<'de> Deserialize<'de>,
     {
         let mut prefab_registry = self
             .app

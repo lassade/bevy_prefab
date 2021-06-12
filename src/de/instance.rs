@@ -16,10 +16,10 @@ use serde::{
 };
 
 use crate::{
+    data::Override,
     de::component::IdentifiedComponentSeq,
     registry::{ComponentDescriptorRegistry, PrefabDescriptor, PrefabDescriptorRegistry},
-    BoxedPrefabData, Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTransformOverride,
-    PrefabTypeUuid,
+    Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTransformOverride, PrefabTypeUuid,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -132,14 +132,14 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             Source,
             Transform,
             Parent,
-            Data,
+            Overrides,
         }
 
         let mut id = None;
         let mut source: Option<Handle<Prefab>> = None;
         let mut transform_override = None;
         let mut parent = None;
-        let mut data = None;
+        let mut overrides = None;
 
         let PrefabInstanceDeserializer {
             id_validation,
@@ -151,7 +151,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         let uuid = (descriptor.uuid)();
         let source_prefab_required = descriptor.source_prefab_required;
         let constructor = descriptor.construct;
-        let data_seed = PrefabInstanceData { descriptor };
+        let data_seed = PrefabInstanceDataOverrides { descriptor };
 
         while let Some(key) = access.next_key()? {
             match key {
@@ -184,11 +184,11 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
                     }
                     parent = Some(access.next_value()?);
                 }
-                Field::Data => {
-                    if data.is_some() {
-                        return Err(de::Error::duplicate_field("data"));
+                Field::Overrides => {
+                    if overrides.is_some() {
+                        return Err(de::Error::duplicate_field("overrides"));
                     }
-                    data = Some(access.next_value_seed(&data_seed)?);
+                    overrides = Some(access.next_value_seed(&data_seed)?);
                 }
             }
         }
@@ -229,9 +229,8 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             blank.insert(PrefabTypeUuid(uuid));
         }
 
-        if let Some(prefab_data) = &data {
-            // insert the PrefabData (down casted) in the root Entity so it can be available during runtime
-            prefab_data.0.copy_to_instance(&mut blank);
+        if let Some(overrides) = overrides {
+            blank.insert(overrides);
         }
 
         // parent all nested prefabs (when needed)
@@ -245,20 +244,22 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
     }
 }
 
-struct PrefabInstanceData {
+struct PrefabInstanceDataOverrides {
     descriptor: PrefabDescriptor,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceData {
-    type Value = BoxedPrefabData;
+impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceDataOverrides {
+    type Value = Box<dyn Override>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let PrefabInstanceData { descriptor } = self;
-        let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
-        (descriptor.de)(&mut deserializer).map_err(de::Error::custom)
+        let PrefabInstanceDataOverrides { descriptor } = self;
+        descriptor
+            .overrides
+            .deserialize(deserializer)
+            .map_err(de::Error::custom)
     }
 }
 
@@ -462,7 +463,10 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
 
 #[cfg(test)]
 mod tests {
-    use bevy::{ecs::world::World, reflect::TypeUuid};
+    use bevy::{
+        ecs::world::World,
+        reflect::{Reflect, TypeUuid},
+    };
     use serde::Deserialize;
 
     use super::*;
@@ -471,10 +475,10 @@ mod tests {
         PrefabData,
     };
 
-    #[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
+    #[derive(Debug, Deserialize, PartialEq, Eq, Clone, Reflect)]
     struct Name(String);
 
-    #[derive(Default, Debug, Deserialize, Clone, TypeUuid)]
+    #[derive(Default, Debug, Deserialize, Clone, TypeUuid, Reflect)]
     #[uuid = "8c24e0d1-98cc-4865-b27a-c776f5ba614d"]
     struct Lamp {
         light_strength: f32,
@@ -513,7 +517,7 @@ mod tests {
                 scale: None,
             ),
             parent: Some(67234),
-            data: (
+            overrides: (
                 //light_color: LinRgba(1, 0, 0, 1),
                 light_strength: 2,
             ),

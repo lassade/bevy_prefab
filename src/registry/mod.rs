@@ -57,7 +57,7 @@ impl<T> Registry<T> {
         &mut self,
         alias: String,
         type_info: (TypeId, Uuid, &'static str),
-        build: impl Fn() -> T,
+        mut build: impl FnMut() -> T,
     ) -> Result<usize, RegistryError> {
         use std::collections::hash_map::Entry::*;
 

@@ -171,6 +171,7 @@ pub(crate) struct PrefabDeserializerInner {
 
 #[derive(Clone)]
 pub(crate) struct PrefabDeserializer {
+    // TODO: change to Arc<AtomicCell<...>> to support scripting hot-reloading
     pub inner: Arc<PrefabDeserializerInner>,
 }
 

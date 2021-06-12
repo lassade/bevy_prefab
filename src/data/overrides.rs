@@ -9,13 +9,13 @@ use bevy::{
     utils::HashMap,
 };
 use serde::{
-    de::{self, DeserializeSeed, MapAccess},
-    Deserialize, //Serialize,
+    de::{self, DeserializeSeed, MapAccess, SeqAccess},
+    Deserialize,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub trait Override {
+pub trait Override: Send + Sync + 'static {
     fn apply_override(&self, target: &mut dyn Reflect);
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
     fn clone_as_boxed_override(&self) -> Box<dyn Override>;
@@ -25,6 +25,18 @@ impl Clone for Box<dyn Override> {
     #[inline]
     fn clone(&self) -> Self {
         self.clone_as_boxed_override()
+    }
+}
+
+impl Override for () {
+    fn apply_override(&self, _: &mut dyn Reflect) {}
+
+    fn map_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
+        Ok(())
+    }
+
+    fn clone_as_boxed_override(&self) -> Box<dyn Override> {
+        Box::new(*self)
     }
 }
 
@@ -101,6 +113,21 @@ macro_rules! vector_data_override {
                         formatter.write_str("a `")?;
                         formatter.write_str(stringify!($override))?;
                         formatter.write_str("`")
+                    }
+
+                    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+                    where
+                        A: SeqAccess<'de>,
+                    {
+                        let mut len = 0;
+                        $(
+                            let $field = seq.next_element()?;
+                            len += 1;
+                        )*
+                        while let Some(de::IgnoredAny) = seq.next_element()? {
+                            return Err(de::Error::invalid_length(len, &stringify!($base)));
+                        }
+                        Ok($override { $( $field, )* })
                     }
 
                     fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
@@ -190,9 +217,20 @@ primitive_data_override!(Quat);
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Clone)]
-enum OverrideDescriptor {
+pub enum OverrideDescriptor {
     Field(FieldOverrideDescriptor),
     Struct(StructOverrideDescriptor),
+}
+
+impl OverrideDescriptor {
+    pub fn blank() -> Self {
+        OverrideDescriptor::Field(FieldOverrideDescriptor {
+            de: |deserializer| {
+                de::IgnoredAny::deserialize(deserializer)?;
+                Ok(Box::new(()))
+            },
+        })
+    }
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for &'a OverrideDescriptor {
@@ -215,12 +253,12 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a OverrideDescriptor {
 }
 
 #[derive(Clone)]
-struct FieldOverrideDescriptor {
+pub struct FieldOverrideDescriptor {
     de: fn(&mut dyn erased_serde::Deserializer) -> Result<Box<dyn Override>>,
 }
 
 #[derive(Clone)]
-struct StructOverrideDescriptor {
+pub struct StructOverrideDescriptor {
     fields: HashMap<String, OverrideDescriptor>,
 }
 
@@ -235,10 +273,46 @@ impl<'a, 'de> de::Visitor<'de> for &'a StructOverrideDescriptor {
     where
         A: MapAccess<'de>,
     {
+        struct Identifier(String);
+
+        struct IdentifierVisitor;
+
+        impl<'de> de::Visitor<'de> for IdentifierVisitor {
+            type Value = Identifier;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a valid identifier")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Identifier(v.to_string()))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Identifier(v))
+            }
+        }
+
+        impl<'de> Deserialize<'de> for Identifier {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                deserializer.deserialize_identifier(IdentifierVisitor)
+            }
+        }
+
         let mut overrides = StructOverride {
             fields: Default::default(),
         };
-        while let Some(key) = map.next_key::<String>()? {
+
+        while let Some(Identifier(key)) = map.next_key()? {
             let descriptor = self
                 .fields
                 .get(&key)
@@ -302,7 +376,9 @@ impl Override for StructOverride {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/// Creates override descriptors that can be used to deserialize and override structs
 pub struct PrefabOverrideRegistry {
+    // TODO: also support uuid lookup in order to support scripting, see src/registry/mod.rs to see an impl example
     registry: HashMap<TypeId, OverrideDescriptor>,
 }
 
@@ -333,6 +409,14 @@ impl Default for PrefabOverrideRegistry {
 }
 
 impl PrefabOverrideRegistry {
+    pub fn find<T: 'static>(&self) -> Option<&OverrideDescriptor> {
+        self.find_by_type_id(TypeId::of::<T>())
+    }
+
+    pub fn find_by_type_id(&self, type_id: TypeId) -> Option<&OverrideDescriptor> {
+        self.registry.get(&type_id)
+    }
+
     pub fn register<K, T>(&mut self)
     where
         K: 'static,

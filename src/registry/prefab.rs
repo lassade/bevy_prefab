@@ -3,11 +3,14 @@ use std::any::{type_name, TypeId};
 use anyhow::Result;
 use bevy::{
     prelude::{Entity, World},
-    reflect::{TypeUuid, Uuid},
+    reflect::{Struct, TypeUuid, Uuid},
 };
 use serde::Deserialize;
 
-use crate::{data::BlankPrefab, BoxedPrefabData, PrefabData};
+use crate::{
+    data::{BlankPrefab, OverrideDescriptor, PrefabOverrideRegistry},
+    BoxedPrefabData, PrefabData,
+};
 
 use super::Registry;
 
@@ -24,6 +27,7 @@ pub(crate) type PrefabUuidFn = fn() -> Uuid;
 pub struct PrefabDescriptor {
     pub(crate) source_prefab_required: bool,
     pub(crate) de: PrefabDeserializerFn,
+    pub(crate) overrides: OverrideDescriptor,
     pub(crate) default: PrefabDefaultFn,
     pub(crate) construct: PrefabConstructFn,
     pub(crate) uuid: PrefabUuidFn,
@@ -32,11 +36,17 @@ pub struct PrefabDescriptor {
 /// Registry of all prefab types available
 ///
 /// **NOTE** The alias `"Prefab"` is registered by default, and uses [`()`] as their [`PrefabData`];
-pub(crate) type PrefabDescriptorRegistry = Registry<PrefabDescriptor>;
+pub(crate) struct PrefabDescriptorRegistry {
+    pub overrides: PrefabOverrideRegistry,
+    base: Registry<PrefabDescriptor>,
+}
 
 impl Default for PrefabDescriptorRegistry {
     fn default() -> Self {
-        let mut registry = Self::empty();
+        let mut registry = Self {
+            overrides: Default::default(),
+            base: Registry::<PrefabDescriptor>::empty(),
+        };
         registry
             .register_aliased::<BlankPrefab>("Prefab".to_string(), true)
             .unwrap();
@@ -45,27 +55,32 @@ impl Default for PrefabDescriptorRegistry {
 }
 
 impl PrefabDescriptorRegistry {
+    #[inline]
+    pub fn find_by_name(&self, name: &str) -> Option<&PrefabDescriptor> {
+        self.base.find_by_name(name)
+    }
+
+    // TODO: `source_prefab_required` should be configured statically in a trait not during registration
     pub fn register_aliased<T>(&mut self, alias: String, source_prefab_required: bool) -> Result<()>
     where
-        T: PrefabData
-            + TypeUuid
-            + Default
-            + Clone
-            + Send
-            + Sync
-            + for<'de> Deserialize<'de>
-            + 'static,
+        T: PrefabData + TypeUuid + Default + Struct + Clone + for<'de> Deserialize<'de>,
     {
+        let PrefabDescriptorRegistry { overrides, base } = self;
+
         let type_info = (TypeId::of::<T>(), T::TYPE_UUID, type_name::<T>());
-        self.register_internal(alias, type_info, || PrefabDescriptor {
-            source_prefab_required,
-            de: |deserializer| {
-                let value: T = Deserialize::deserialize(deserializer)?;
-                Ok(BoxedPrefabData(Box::new(value)))
-            },
-            default: || BoxedPrefabData(Box::new(T::default())),
-            construct: |world, root| T::default().construct_instance(world, root),
-            uuid: || T::TYPE_UUID,
+        base.register_internal(alias, type_info, || {
+            overrides.register_struct::<T>();
+            PrefabDescriptor {
+                source_prefab_required,
+                de: |deserializer| {
+                    let value: T = Deserialize::deserialize(deserializer)?;
+                    Ok(BoxedPrefabData(Box::new(value)))
+                },
+                overrides: overrides.find::<T>().unwrap().clone(),
+                default: || BoxedPrefabData(Box::new(T::default())),
+                construct: |world, root| T::default().construct_instance(world, root),
+                uuid: || T::TYPE_UUID,
+            }
         })?;
         Ok(())
     }

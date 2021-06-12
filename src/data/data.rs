@@ -7,19 +7,19 @@ use bevy::{
         entity::Entity,
         world::{EntityMut, World},
     },
-    reflect::{TypeUuid, Uuid},
+    reflect::{TypeUuid, Uuid, Reflect},
 };
 use serde::{Deserialize, Serialize};
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub trait PrefabData: PrefabDataHelper + Debug {
+pub trait PrefabData: PrefabDataHelper + Debug + Send + Sync + 'static {
     /// Construct function called once on spawn
     fn construct(&self, world: &mut World, root: Entity) -> Result<()>;
 }
 
 #[derive(Debug)]
-pub struct BoxedPrefabData(pub(crate) Box<dyn PrefabData + Send + Sync>);
+pub struct BoxedPrefabData(pub(crate) Box<dyn PrefabData>);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -38,7 +38,7 @@ pub trait PrefabDataHelper {
 
 impl<T> PrefabDataHelper for T
 where
-    T: PrefabData + TypeUuid + Clone + Send + Sync + Component + 'static,
+    T: PrefabData + TypeUuid + Clone + Component,
 {
     fn copy_to_instance(&self, entity: &mut EntityMut) {
         if !entity.contains::<T>() {
@@ -68,7 +68,7 @@ where
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, TypeUuid)]
+#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, TypeUuid, Reflect)]
 #[uuid = "3c603f24-9a89-45c3-8f4a-087a28f006df"]
 pub struct BlankPrefab;
 
