@@ -8,7 +8,7 @@ use bevy::{
 use serde::Deserialize;
 
 use crate::{
-    data::{BlankPrefab, OverrideDescriptor, PrefabOverrideRegistry},
+    data::{BlankPrefab, OverrideDescriptor, OverrideRegistry},
     BoxedPrefabData, PrefabData,
 };
 
@@ -37,7 +37,7 @@ pub struct PrefabDescriptor {
 ///
 /// **NOTE** The alias `"Prefab"` is registered by default, and uses [`()`] as their [`PrefabData`];
 pub(crate) struct PrefabDescriptorRegistry {
-    pub overrides: PrefabOverrideRegistry,
+    pub overrides: OverrideRegistry,
     base: Registry<PrefabDescriptor>,
 }
 

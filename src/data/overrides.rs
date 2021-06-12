@@ -17,7 +17,7 @@ use serde::{
 
 pub trait Override: Send + Sync + 'static {
     fn apply_override(&self, target: &mut dyn Reflect);
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
+    fn map_overwritten_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
     fn clone_as_boxed_override(&self) -> Box<dyn Override>;
 }
 
@@ -28,10 +28,17 @@ impl Clone for Box<dyn Override> {
     }
 }
 
+impl MapEntities for Box<dyn Override> {
+    #[inline]
+    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+        self.map_overwritten_entities(entity_map)
+    }
+}
+
 impl Override for () {
     fn apply_override(&self, _: &mut dyn Reflect) {}
 
-    fn map_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
+    fn map_overwritten_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
         Ok(())
     }
 
@@ -56,7 +63,7 @@ macro_rules! primitive_data_override {
                 }
             }
 
-            fn map_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
+            fn map_overwritten_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
                 Ok(())
             }
 
@@ -87,7 +94,7 @@ impl Override for Entity {
         }
     }
 
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+    fn map_overwritten_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
         *self = entity_map.get(*self)?;
         Ok(())
     }
@@ -174,7 +181,7 @@ macro_rules! vector_data_override {
                 }
             }
 
-            fn map_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
+            fn map_overwritten_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
                 Ok(())
             }
 
@@ -266,7 +273,7 @@ impl<'a, 'de> de::Visitor<'de> for &'a StructOverrideDescriptor {
     type Value = Box<dyn Override>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("a valid `PrefabData` map")
+        formatter.write_str("an struct")
     }
 
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
@@ -339,15 +346,6 @@ pub struct StructOverride {
     fields: HashMap<String, Box<dyn Override>>,
 }
 
-impl MapEntities for StructOverride {
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
-        for (_, v) in &mut self.fields {
-            v.map_entities(entity_map)?;
-        }
-        Ok(())
-    }
-}
-
 impl Override for StructOverride {
     fn apply_override(&self, target: &mut dyn Reflect) {
         match target.reflect_mut() {
@@ -365,8 +363,11 @@ impl Override for StructOverride {
         }
     }
 
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
-        MapEntities::map_entities(self, entity_map)
+    fn map_overwritten_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+        for (_, v) in &mut self.fields {
+            v.map_entities(entity_map)?;
+        }
+        Ok(())
     }
 
     fn clone_as_boxed_override(&self) -> Box<dyn Override> {
@@ -377,12 +378,12 @@ impl Override for StructOverride {
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Creates override descriptors that can be used to deserialize and override structs
-pub struct PrefabOverrideRegistry {
+pub struct OverrideRegistry {
     // TODO: also support uuid lookup in order to support scripting, see src/registry/mod.rs to see an impl example
     registry: HashMap<TypeId, OverrideDescriptor>,
 }
 
-impl Default for PrefabOverrideRegistry {
+impl Default for OverrideRegistry {
     fn default() -> Self {
         let mut registry = Self {
             registry: Default::default(),
@@ -408,7 +409,7 @@ impl Default for PrefabOverrideRegistry {
     }
 }
 
-impl PrefabOverrideRegistry {
+impl OverrideRegistry {
     pub fn find<T: 'static>(&self) -> Option<&OverrideDescriptor> {
         self.find_by_type_id(TypeId::of::<T>())
     }

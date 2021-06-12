@@ -7,7 +7,7 @@ use bevy::{
         entity::Entity,
         world::{EntityMut, World},
     },
-    reflect::{TypeUuid, Uuid, Reflect},
+    reflect::{Reflect, TypeUuid, Uuid},
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,7 @@ pub trait PrefabData: PrefabDataHelper + Debug + Send + Sync + 'static {
 }
 
 #[derive(Debug)]
-pub struct BoxedPrefabData(pub(crate) Box<dyn PrefabData>);
+pub struct BoxedPrefabData(pub Box<dyn PrefabData>);
 
 ///////////////////////////////////////////////////////////////////////////////
 

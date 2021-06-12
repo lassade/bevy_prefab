@@ -9,7 +9,7 @@ use bevy::{
 use serde::Deserialize;
 
 use crate::{
-    data::BlankPrefab,
+    data::{BlankPrefab, BoxedPrefabOverrides},
     de::PrefabDeserializer,
     manager::{prefab_commit_startup_system, prefab_managing_system},
     prelude::BoxedPrefabData,
@@ -57,6 +57,10 @@ impl PrefabPlugin {
             .unwrap();
 
         component_registry
+            .register_private::<BoxedPrefabOverrides>("BoxedPrefabOverrides".to_string())
+            .unwrap();
+
+        component_registry
             .register_private::<Handle<Prefab>>("Handle<Prefab>".to_string())
             .unwrap();
 
@@ -75,6 +79,14 @@ impl PrefabPlugin {
         component_registry
             .register_private::<PrefabTypeUuid>("PrefabTypeUuid".to_string())
             .unwrap();
+
+        let mut component_entity_mapper = app_builder
+            .app
+            .world
+            .get_resource_mut::<ComponentEntityMapperRegistry>()
+            .unwrap();
+
+        component_entity_mapper.register::<BoxedPrefabOverrides>();
     }
 }
 

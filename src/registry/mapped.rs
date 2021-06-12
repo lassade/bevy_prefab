@@ -4,7 +4,6 @@ use bevy::ecs::{
     entity::{EntityMap, MapEntities},
     world::{EntityMut, World},
 };
-use serde::Deserialize;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -39,7 +38,7 @@ impl ComponentEntityMapperRegistry {
 
     pub fn register<T>(&mut self)
     where
-        T: Component + MapEntities + Clone + for<'de> Deserialize<'de> + 'static,
+        T: Component + MapEntities + Clone,
     {
         // maps entities all components in the world
         self.world.push(|world, entity_map| {

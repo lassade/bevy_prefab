@@ -16,7 +16,7 @@ use serde::{
 };
 
 use crate::{
-    data::Override,
+    data::BoxedPrefabOverrides,
     de::component::IdentifiedComponentSeq,
     registry::{ComponentDescriptorRegistry, PrefabDescriptor, PrefabDescriptorRegistry},
     Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTransformOverride, PrefabTypeUuid,
@@ -249,7 +249,7 @@ struct PrefabInstanceDataOverrides {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceDataOverrides {
-    type Value = Box<dyn Override>;
+    type Value = BoxedPrefabOverrides;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -260,6 +260,7 @@ impl<'a, 'de> DeserializeSeed<'de> for &'a PrefabInstanceDataOverrides {
             .overrides
             .deserialize(deserializer)
             .map_err(de::Error::custom)
+            .map(BoxedPrefabOverrides)
     }
 }
 
