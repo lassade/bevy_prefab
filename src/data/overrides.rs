@@ -4,7 +4,7 @@ use anyhow::Result;
 use bevy::{
     ecs::entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     math::prelude::*,
-    prelude::warn,
+    prelude::{warn, Hsla, LinSrgba, Srgba},
     reflect::{Reflect, ReflectMut, ReflectRef, Struct},
     utils::HashMap,
 };
@@ -221,6 +221,10 @@ vector_data_override!(Vec3, Vec3Override, x, y, z,);
 vector_data_override!(Vec4, Vec4Override, x, y, z, w,);
 primitive_data_override!(Quat);
 
+primitive_data_override!(LinSrgba);
+primitive_data_override!(Srgba);
+primitive_data_override!(Hsla);
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Clone)]
@@ -404,6 +408,9 @@ impl Default for OverrideRegistry {
         registry.register::<Vec3, Vec3Override>();
         registry.register::<Vec4, Vec4Override>();
         registry.register::<Quat, Quat>();
+        registry.register::<LinSrgba, LinSrgba>();
+        registry.register::<Srgba, Srgba>();
+        registry.register::<Hsla, Hsla>();
 
         registry
     }
