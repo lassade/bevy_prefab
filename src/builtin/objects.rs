@@ -28,13 +28,24 @@ impl PrefabData for StaticMeshPrefab {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Reflect, TypeUuid)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect, TypeUuid)]
 #[uuid = "c19276df-0609-4171-a71d-30ef513a92d1"]
 pub struct PointLightPrefab {
     pub color: Color,
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
+}
+
+impl Default for PointLightPrefab {
+    fn default() -> Self {
+        PointLightPrefab {
+            color: Color::new(1.0, 1.0, 1.0),
+            intensity: 200.0,
+            range: 20.0,
+            radius: 0.0,
+        }
+    }
 }
 
 impl PrefabData for PointLightPrefab {
