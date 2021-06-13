@@ -70,14 +70,15 @@ Prefab (
 - use cases and tests
 - query about prefab loading status
 - only spawn a prefab when all their prefabs dependencies where loaded
-- hot reload
 - send prefab events instantiated or modified
-- prefab components
 - remove entities if prefab fails to load
+- hot reload
+- prefab components, thats what the construct is for but that will actually reduce the amount of data duplication
 - serialization
 - uuid support for prefab variants and component names
 - embedded assets
 - save and load the table of components uuids to be used by non human readable formats on publishing
+- editor
 
 ## Usage
 
