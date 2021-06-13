@@ -1,10 +1,14 @@
-use std::{any::TypeId, collections::hash_map::Entry};
+use std::{
+    any::{type_name, TypeId},
+    collections::hash_map::Entry,
+};
 
 use anyhow::Result;
 use bevy::{
+    asset::Asset,
     ecs::entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     math::prelude::*,
-    prelude::{warn, Hsla, LinSrgba, Srgba},
+    prelude::{warn, Handle, Hsla, LinSrgba, Mesh, Srgba, StandardMaterial},
     reflect::{Reflect, ReflectMut, ReflectRef, Struct},
     utils::HashMap,
 };
@@ -101,6 +105,28 @@ impl Override for Entity {
 
     fn clone_as_boxed_override(&self) -> Box<dyn Override> {
         Box::new(*self)
+    }
+}
+
+impl<T: Asset> Override for Handle<T> {
+    fn apply_override(&self, target: &mut dyn Reflect) {
+        if let Some(target) = target.downcast_mut::<Handle<T>>() {
+            *target = self.clone();
+        } else {
+            warn!(
+                "`{}` can't be overwritten by `Handle<{}>`",
+                target.type_name(),
+                type_name::<T>()
+            );
+        }
+    }
+
+    fn map_overwritten_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
+        Ok(())
+    }
+
+    fn clone_as_boxed_override(&self) -> Box<dyn Override> {
+        Box::new(self.clone())
     }
 }
 
@@ -393,6 +419,7 @@ impl Default for OverrideRegistry {
             registry: Default::default(),
         };
 
+        // primitive
         registry.register::<u8, u8>();
         registry.register::<i8, i8>();
         registry.register::<u16, u16>();
@@ -403,14 +430,20 @@ impl Default for OverrideRegistry {
         registry.register::<i64, i64>();
         registry.register::<f32, f32>();
         registry.register::<f64, f64>();
+        // entity
         registry.register::<Entity, Entity>();
+        // vector types
         registry.register::<Vec2, Vec2Override>();
         registry.register::<Vec3, Vec3Override>();
         registry.register::<Vec4, Vec4Override>();
         registry.register::<Quat, Quat>();
+        // color types
         registry.register::<LinSrgba, LinSrgba>();
         registry.register::<Srgba, Srgba>();
         registry.register::<Hsla, Hsla>();
+        // common handle types
+        registry.register::<Handle<Mesh>, Handle<Mesh>>();
+        registry.register::<Handle<StandardMaterial>, Handle<StandardMaterial>>();
 
         registry
     }
