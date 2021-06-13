@@ -76,7 +76,9 @@ impl PrefabDescriptorRegistry {
                 },
                 overrides: overrides.find::<T>().unwrap().clone(),
                 default: || BoxedPrefabData(Box::new(T::default())),
-                construct: |world, root| T::default().construct_instance(world, root),
+                construct: |world, root| {
+                    T::default().apply_overrides_and_construct_instance(world, root)
+                },
                 uuid: T::TYPE_UUID,
             }
         })?;

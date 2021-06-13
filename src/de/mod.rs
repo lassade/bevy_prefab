@@ -149,6 +149,8 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             .map_world_components(&mut world, &source_to_prefab)
             .map_err(de::Error::custom)?;
 
+        // TODO: map data entities
+
         let data = data.unwrap_or_else(|| (data_seed.descriptor.default)());
         let transform = transform.unwrap_or_default();
         Ok(Prefab {

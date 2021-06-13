@@ -65,6 +65,7 @@ Prefab (
 
 ## TODO
 
+- map entities on a prefab data
 - use cases and tests
 - query about prefab loading status
 - hot reload
