@@ -1,9 +1,5 @@
-use bevy::{
-    asset::AssetServerSettings,
-    ecs::entity::{EntityMap, MapEntities, MapEntitiesError},
-    prelude::*,
-    reflect::TypeUuid,
-};
+use anyhow::Result;
+use bevy::{asset::AssetServerSettings, ecs::entity::EntityMap, prelude::*, reflect::TypeUuid};
 use bevy_prefab::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -31,10 +27,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..Default::default()
-    });
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
@@ -62,30 +54,27 @@ impl Default for BlinkingLightPrefab {
 }
 
 impl PrefabData for BlinkingLightPrefab {
-    fn construct(&self, world: &mut World, root_entity: Entity) -> anyhow::Result<()> {
-        assert!(
-            world
-                .entity(self.light_entity)
-                .get::<PointLight>()
-                .is_some(),
-            "point light is missing"
-        );
+    fn construct(&self, world: &mut World, root_entity: Entity) -> Result<()> {
+        let _ = world;
+        let _ = root_entity;
+        // TODO: point light should be available for this function but it isn't
+        Ok(())
+    }
+
+    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<()> {
+        self.light_entity = entity_map.get(self.light_entity)?;
         Ok(())
     }
 }
 
-impl MapEntities for BlinkingLightPrefab {
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
-        todo!()
-    }
-}
-
 fn blinking_light_update(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &BlinkingLightPrefab)>,
+    blinking_lights: Query<&BlinkingLightPrefab>,
+    point_lights: Query<&PointLight>,
 ) {
-    // let q = Quat::from_rotation_y(0.5 * time.delta_seconds());
-    // for mut transform in query.iter_mut() {
-    //     transform.rotation *= q;
-    // }
+    for blinking_light in blinking_lights.iter() {
+        info!(
+            "blinking_light have point light: {}",
+            point_lights.get(blinking_light.light_entity).is_ok()
+        );
+    }
 }

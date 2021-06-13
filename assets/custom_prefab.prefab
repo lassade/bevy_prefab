@@ -1,7 +1,21 @@
 Prefab(
     scene: [
         BlinkingLightPrefab(
+            transform: (
+                translation: Some((4.0, 8.0, 4.0)),
+            ),
             source: External("custom_prefab_source.prefab"),
+        ),
+        PlanePrefab(
+            transform: (
+                translation: Some((0, 0, 0)),
+                scale: Some((6, 6, 6)),
+            )
+        ),
+        CubePrefab(
+            transform: (
+                translation: Some((0, 1, 0)),
+            )
         ),
     ],
 )

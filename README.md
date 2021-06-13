@@ -70,6 +70,7 @@ Prefab (
 `PrefabMissingEntityTag` component is spawned to take their place
 - use cases and tests
 - query about prefab loading status
+- only spawn a prefab when all their prefabs dependencies where loaded
 - hot reload
 - send prefab events instantiated or modified
 - prefab components
