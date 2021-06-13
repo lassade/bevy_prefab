@@ -148,9 +148,6 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             descriptor,
         } = self;
 
-        let uuid = descriptor.uuid;
-        let source_prefab_required = descriptor.source_prefab_required;
-        let constructor = descriptor.construct;
         let data_seed = PrefabInstanceDataOverrides { descriptor };
 
         while let Some(key) = access.next_key()? {
@@ -195,7 +192,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
 
         // prefabs only driven by code doesn't need source prefabs to define their main,
         // here checks if the prefab needs the source field or not and give error to the user
-        if source_prefab_required {
+        if data_seed.descriptor.source_prefab_required {
             if source.is_none() {
                 Err(de::Error::missing_field("source"))?;
             }
@@ -221,12 +218,12 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             PrefabNotInstantiatedTag { _marker: () },
         ));
 
-        if !source_prefab_required {
+        if !data_seed.descriptor.source_prefab_required {
             // source isn't available, insert construct function definition
-            blank.insert(PrefabConstruct(constructor));
+            blank.insert(PrefabConstruct(data_seed.descriptor.construct));
         } else {
             // validate source type
-            blank.insert(PrefabTypeUuid(uuid));
+            blank.insert(PrefabTypeUuid(data_seed.descriptor.uuid));
         }
 
         if let Some(overrides) = overrides {
@@ -465,7 +462,10 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
 #[cfg(test)]
 mod tests {
     use bevy::{
-        ecs::world::World,
+        ecs::{
+            entity::{MapEntities, MapEntitiesError},
+            world::World,
+        },
         reflect::{Reflect, TypeUuid},
     };
     use serde::Deserialize;
@@ -490,6 +490,13 @@ mod tests {
             let _ = world;
             let _ = root;
             unimplemented!("blanket implementation")
+        }
+    }
+
+    // TODO: remove
+    impl MapEntities for Lamp {
+        fn map_entities(&mut self, _: &EntityMap) -> Result<(), MapEntitiesError> {
+            Ok(())
         }
     }
 

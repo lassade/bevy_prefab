@@ -144,15 +144,19 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             }
         }
 
-        // Map entities from source file to prefab space
+        // map entities from source file to prefab space
         component_entity_mapper
             .map_world_components(&mut world, &source_to_prefab)
             .map_err(de::Error::custom)?;
 
-        // TODO: map data entities
-
-        let data = data.unwrap_or_else(|| (data_seed.descriptor.default)());
         let transform = transform.unwrap_or_default();
+        let mut data = data.unwrap_or_else(|| (data_seed.descriptor.default)());
+
+        // map entities inside the data
+        data.0
+            .map_entities(&source_to_prefab)
+            .map_err(de::Error::custom)?;
+
         Ok(Prefab {
             data,
             transform,

@@ -2,6 +2,7 @@ use std::any::{type_name, TypeId};
 
 use anyhow::Result;
 use bevy::{
+    ecs::entity::EntityMap,
     prelude::{Entity, World},
     reflect::{Struct, TypeUuid, Uuid},
 };
@@ -19,7 +20,7 @@ pub(crate) type PrefabDeserializerFn =
 
 pub(crate) type PrefabDefaultFn = fn() -> BoxedPrefabData;
 
-pub(crate) type PrefabConstructFn = fn(&mut World, Entity) -> Result<()>;
+pub(crate) type PrefabConstructFn = fn(&mut World, Entity, &EntityMap) -> Result<()>;
 
 #[derive(Clone)]
 pub struct PrefabDescriptor {
@@ -76,8 +77,12 @@ impl PrefabDescriptorRegistry {
                 },
                 overrides: overrides.find::<T>().unwrap().clone(),
                 default: || BoxedPrefabData(Box::new(T::default())),
-                construct: |world, root| {
-                    T::default().apply_overrides_and_construct_instance(world, root)
+                construct: |world, root, prefab_to_instance| {
+                    T::default().apply_overrides_and_construct_instance(
+                        world,
+                        root,
+                        prefab_to_instance,
+                    )
                 },
                 uuid: T::TYPE_UUID,
             }

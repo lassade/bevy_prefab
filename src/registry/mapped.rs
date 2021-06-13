@@ -18,6 +18,7 @@ pub(crate) struct ComponentEntityMapperRegistry {
 }
 
 impl ComponentEntityMapperRegistry {
+    /// Map entities on all registered components in the entire [`World`]
     pub fn map_world_components(&self, world: &mut World, entity_map: &EntityMap) -> Result<()> {
         for map in &self.world {
             (map)(world, &entity_map)?;
@@ -25,6 +26,7 @@ impl ComponentEntityMapperRegistry {
         Ok(())
     }
 
+    /// Map entities on all registered components for a single [`Entity`]
     pub fn map_entity_components(
         &self,
         entity: &mut EntityMut,
@@ -36,6 +38,7 @@ impl ComponentEntityMapperRegistry {
         Ok(())
     }
 
+    /// Register a component that references other entities
     pub fn register<T>(&mut self)
     where
         T: Component + MapEntities + Clone,

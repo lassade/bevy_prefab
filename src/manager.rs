@@ -142,12 +142,13 @@ fn prefab_spawner(
 
             // apply overrides and run construct function
             if let Some(prefab_construct) = root.get::<PrefabConstruct>() {
-                (prefab_construct.0)(world, root_entity).unwrap();
+                // prefab doesn't require a valid source (fully procedural)
+                (prefab_construct.0)(world, root_entity, &prefab_to_instance).unwrap();
             } else {
                 prefab
                     .data
                     .0
-                    .apply_overrides_and_construct_instance(world, root_entity)
+                    .apply_overrides_and_construct_instance(world, root_entity, &prefab_to_instance)
                     .unwrap();
             }
         }
