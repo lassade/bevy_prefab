@@ -10,7 +10,6 @@ use serde::Deserialize;
 
 use crate::{
     data::{BlankPrefab, BoxedPrefabOverrides},
-    de::PrefabDeserializer,
     manager::{prefab_commit_startup_system, prefab_managing_system},
     prelude::BoxedPrefabData,
     registry::{
@@ -150,19 +149,6 @@ impl Plugin for PrefabPlugin {
         if self.objects_prefabs {
             crate::builtin::objects::register_objects_prefabs(app_builder);
         }
-
-        // Commit changes
-        let world = &mut app_builder.app.world;
-        let prefab_registry = world.remove_resource::<PrefabDescriptorRegistry>().unwrap();
-        let component_registry = world
-            .remove_resource::<ComponentDescriptorRegistry>()
-            .unwrap();
-        let component_entity_mapper = world
-            .remove_resource::<ComponentEntityMapperRegistry>()
-            .unwrap();
-        let prefab_deserializer =
-            PrefabDeserializer::new(component_entity_mapper, component_registry, prefab_registry);
-        world.insert_resource(prefab_deserializer);
     }
 }
 

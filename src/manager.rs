@@ -4,7 +4,9 @@ use thiserror::Error;
 use crate::{
     de::PrefabDeserializer,
     loader::PrefabLoader,
-    registry::{ComponentDescriptorRegistry, ComponentEntityMapperRegistry},
+    registry::{
+        ComponentDescriptorRegistry, ComponentEntityMapperRegistry, PrefabDescriptorRegistry,
+    },
     Prefab, PrefabConstruct, PrefabError, PrefabErrorTag, PrefabNotInstantiatedTag,
     PrefabTransformOverride, PrefabTypeUuid,
 };
@@ -139,13 +141,13 @@ fn prefab_spawner(
             root.insert_bundle((GlobalTransform::default(), transform, Children::default()));
 
             // apply overrides and run construct function
-            if let Some(prefab_construct) = root.remove::<PrefabConstruct>() {
+            if let Some(prefab_construct) = root.get::<PrefabConstruct>() {
                 (prefab_construct.0)(world, root_entity).unwrap();
             } else {
                 prefab
                     .data
                     .0
-                    .construct_instance(world, root_entity)
+                    .apply_overrides_and_construct_instance(world, root_entity)
                     .unwrap();
             }
         }
@@ -163,7 +165,19 @@ fn prefab_spawner(
 }
 
 pub(crate) fn prefab_commit_startup_system(world: &mut World) {
-    // Create loader on startup, commits to registered prefab and components
+    // commits to registered prefab and components on startup
+    let prefab_registry = world.remove_resource::<PrefabDescriptorRegistry>().unwrap();
+    let component_registry = world
+        .remove_resource::<ComponentDescriptorRegistry>()
+        .unwrap();
+    let component_entity_mapper = world
+        .remove_resource::<ComponentEntityMapperRegistry>()
+        .unwrap();
+    let prefab_deserializer =
+        PrefabDeserializer::new(component_entity_mapper, component_registry, prefab_registry);
+    world.insert_resource(prefab_deserializer);
+
+    // create prefab loader
     let loader = PrefabLoader::from_world(world);
     world
         .get_resource::<AssetServer>()
