@@ -1,12 +1,18 @@
 BlinkingLightPrefab (
     data: (
-        color: (r: 1, g: 0, b: 0, a: 1),
-        speed: 0.2,
+        //color: (r: 1, g: 0, b: 0, a: 1),
+        min: 10.0,
+        max: 15.0,
+        speed: 0.5,
         light_entity: 100,
     ),
     scene: [
         PointLightPrefab (
             id: 100,
+            overrides: (
+                color: (r: 1, g: 0, b: 0, a: 1),
+                range: 10.0,
+            )
         )
     ],
 )

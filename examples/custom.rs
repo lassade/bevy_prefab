@@ -1,6 +1,16 @@
 use anyhow::Result;
-use bevy::{asset::AssetServerSettings, ecs::entity::EntityMap, prelude::*, reflect::TypeUuid};
+use bevy::{
+    asset::AssetServerSettings,
+    ecs::entity::EntityMap,
+    math::{
+        curves::{Curve, CurveFixed},
+        interpolation::utils::lerp_unclamped,
+    },
+    prelude::*,
+    reflect::TypeUuid,
+};
 use bevy_prefab::prelude::*;
+use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
 fn main() {
@@ -34,11 +44,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_prefab(asset_server.load("custom_prefab.prefab"));
 }
 
+struct BlinkingLightLocal {
+    curve: CurveFixed<f32>,
+}
+
+impl Default for BlinkingLightLocal {
+    fn default() -> Self {
+        // generate animated noise
+        let mut rng = thread_rng();
+        let mut samples: Vec<f32> = vec![];
+        samples.resize_with(20, || rng.gen());
+        let curve = CurveFixed::from_keyframes(20.0, 0, samples);
+
+        Self { curve }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect, TypeUuid)]
 #[serde(default)]
 #[uuid = "0833291b-ecc0-4fff-ae45-42ee8698dd43"]
 struct BlinkingLightPrefab {
-    pub color: Color,
+    //pub color: Color,
+    pub min: f32,
+    pub max: f32,
     pub speed: f32,
     light_entity: Entity,
 }
@@ -46,7 +74,9 @@ struct BlinkingLightPrefab {
 impl Default for BlinkingLightPrefab {
     fn default() -> Self {
         Self {
-            color: Color::WHITE,
+            //color: Color::WHITE,
+            min: 15.0,
+            max: 20.0,
             speed: 0.2,
             light_entity: Entity::new(u32::MAX),
         }
@@ -68,13 +98,16 @@ impl PrefabData for BlinkingLightPrefab {
 }
 
 fn blinking_light_update(
+    local: Local<BlinkingLightLocal>,
+    time: Res<Time>,
     blinking_lights: Query<&BlinkingLightPrefab>,
-    point_lights: Query<&PointLight>,
+    mut point_lights: Query<&mut PointLight>,
 ) {
     for blinking_light in blinking_lights.iter() {
-        info!(
-            "blinking_light have point light: {}",
-            point_lights.get(blinking_light.light_entity).is_ok()
-        );
+        if let Ok(mut point_light) = point_lights.get_mut(blinking_light.light_entity) {
+            let time = (time.seconds_since_startup() as f32 * blinking_light.speed).fract();
+            let s = local.curve.sample(time);
+            point_light.range = lerp_unclamped(blinking_light.min, blinking_light.max, s);
+        }
     }
 }

@@ -5,6 +5,9 @@ Prefab(
                 translation: Some((4.0, 8.0, 4.0)),
             ),
             source: External("custom_prefab_source.prefab"),
+            overrides: (
+                speed: 1.0,
+            )
         ),
         PlanePrefab(
             transform: (

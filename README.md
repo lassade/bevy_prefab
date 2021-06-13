@@ -65,7 +65,7 @@ Prefab (
 
 ## TODO
 
-- missing a entity won't result a result, but instead a entity with a
+- missing a entity won't error, but instead a entity with a
 `PrefabMissingEntityTag` component is spawned to take their place
 - use cases and tests
 - query about prefab loading status
