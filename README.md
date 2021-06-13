@@ -65,7 +65,6 @@ Prefab (
 
 ## TODO
 
-- map entities on a prefab data
 - missing a entity won't result a result, but instead a entity with a
 `PrefabMissingEntityTag` component is spawned to take their place
 - use cases and tests
