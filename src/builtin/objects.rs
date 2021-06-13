@@ -28,7 +28,31 @@ impl PrefabData for StaticMeshPrefab {
     }
 }
 
-// TODO: PointLightPrefab
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Reflect, TypeUuid)]
+#[uuid = "c19276df-0609-4171-a71d-30ef513a92d1"]
+pub struct PointLightPrefab {
+    pub color: Color,
+    pub intensity: f32,
+    pub range: f32,
+    pub radius: f32,
+}
+
+impl PrefabData for PointLightPrefab {
+    fn construct(&self, world: &mut World, root: Entity) -> anyhow::Result<()> {
+        world.entity_mut(root).insert_bundle(PointLightBundle {
+            point_light: PointLight {
+                color: self.color,
+                intensity: self.intensity,
+                range: self.range,
+                radius: self.radius,
+            },
+            ..Default::default()
+        });
+
+        Ok(())
+    }
+}
+
 // TODO: DirectionalLightPrefab
 // TODO: PerspectiveCameraPrefab
 // TODO: OrthographicCameraPrefab
@@ -37,4 +61,5 @@ impl PrefabData for StaticMeshPrefab {
 
 pub fn register_objects_prefabs(app_builder: &mut AppBuilder) {
     app_builder.register_prefab::<StaticMeshPrefab>(false);
+    app_builder.register_prefab::<PointLightPrefab>(false);
 }
