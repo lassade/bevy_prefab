@@ -1,5 +1,10 @@
-use bevy::{asset::AssetServerSettings, prelude::*, reflect::TypeUuid};
-use bevy_prefab::{builtin::CubePrefab, prelude::*};
+use bevy::{
+    asset::AssetServerSettings,
+    ecs::entity::{EntityMap, MapEntities, MapEntitiesError},
+    prelude::*,
+    reflect::TypeUuid,
+};
+use bevy_prefab::prelude::*;
 use serde::{Deserialize, Serialize};
 
 fn main() {
@@ -19,8 +24,9 @@ fn main() {
                 .with_primitives_prefabs()
                 .with_objects_prefabs(),
         )
+        .register_prefab::<BlinkingLightPrefab>(true)
         .add_startup_system(setup.system())
-        .add_system(rotate_cubes.system())
+        .add_system(blinking_light_update.system())
         .run();
 }
 
@@ -40,26 +46,46 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[serde(default)]
 #[uuid = "0833291b-ecc0-4fff-ae45-42ee8698dd43"]
 struct BlinkingLightPrefab {
-    color: Color,
-    speed: f32,
+    pub color: Color,
+    pub speed: f32,
     light_entity: Entity,
 }
 
 impl Default for BlinkingLightPrefab {
     fn default() -> Self {
-        todo!()
+        Self {
+            color: Color::WHITE,
+            speed: 0.2,
+            light_entity: Entity::new(u32::MAX),
+        }
     }
 }
 
 impl PrefabData for BlinkingLightPrefab {
-    fn construct(&self, world: &mut World, root: Entity) -> anyhow::Result<()> {
+    fn construct(&self, world: &mut World, root_entity: Entity) -> anyhow::Result<()> {
+        assert!(
+            world
+                .entity(self.light_entity)
+                .get::<PointLight>()
+                .is_some(),
+            "point light is missing"
+        );
+        Ok(())
+    }
+}
+
+impl MapEntities for BlinkingLightPrefab {
+    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
         todo!()
     }
 }
 
-fn rotate_cubes(time: Res<Time>, mut query: Query<&mut Transform, With<CubePrefab>>) {
-    let q = Quat::from_rotation_y(0.5 * time.delta_seconds());
-    for mut transform in query.iter_mut() {
-        transform.rotation *= q;
-    }
+fn blinking_light_update(
+    time: Res<Time>,
+    mut query: Query<(&mut Transform, &BlinkingLightPrefab)>,
+) {
+    // let q = Quat::from_rotation_y(0.5 * time.delta_seconds());
+    // for mut transform in query.iter_mut() {
+    //     transform.rotation *= q;
+    // }
 }

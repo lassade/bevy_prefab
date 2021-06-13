@@ -1,30 +1,12 @@
 BlinkingLightPrefab (
     data: (
-        color: (1, 0, 0, 1),
+        color: (r: 1, g: 0, b: 0, a: 1),
         speed: 0.2,
-        // data can't reference any entity inside the prefab,
-        // because instances can't reference entities inside the prefab
-        // so it's impossible to override it. thats quite bit of a problem
-        // light_entity: 100,
+        light_entity: 100,
     ),
-    // that's not very convinient to implement but might be for the user
-    // components:  [
-    //     BlinkingLightPrefabPrivateFields((
-    //         light_entity: 100,
-    //     )),
-    // ],
     scene: [
-        // use entity inside the prefab to work as a data bag, (bad work around)
-        // Entity (
-        //     components:  [
-        //         BlinkingLightPrefabPrivateData((
-        //             light_entity: 100,
-        //         )),
-        //     ],
-        // ),
         PointLightPrefab (
             id: 100,
-            //data: () // TODO
         )
     ],
 )

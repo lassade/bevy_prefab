@@ -1,6 +1,6 @@
 Prefab(
     scene: [
-        BlinkingLight(
+        BlinkingLightPrefab(
             source: External("custom_prefab_source.prefab"),
         ),
     ],
