@@ -65,15 +65,20 @@ Prefab (
 
 ## TODO
 
-- missing a entity won't error, but instead a entity with a
-`PrefabMissingEntityTag` component is spawned to take their place
-- use cases and tests
+- temp prefab entity, so children can reference the top level prefab entity
+- prefab components, reduces the amount of data duplication
+- missing a entity won't result in error, instead a entity tagged with `PrefabMissingEntityTag` is spawned to take their place
+- missing entity (test case)
+- unknown component (test case)
 - query about prefab loading status
-- only spawn a prefab when all their prefabs dependencies where loaded
-- send prefab events instantiated or modified
 - remove entities if prefab fails to load
+- fail to load nested prefab (test case)
+- only spawn a prefab when all their prefabs dependencies where loaded
+    custom dependency tracking until we have a proper one from distill,
+    while deserializing collect all prefab dependencies
+- modify or change nested prefab inside the construct function (test case)
+- send prefab events instantiated or modified
 - hot reload
-- prefab components, thats what the construct is for but that will actually reduce the amount of data duplication
 - serialization
 - uuid support for prefab variants and component names
 - embedded assets
