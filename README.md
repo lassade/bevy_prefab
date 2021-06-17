@@ -16,10 +16,14 @@ The example is given in `ron` file format, but the prefab system can be (de)seri
 
 ```json5
 Prefab (
+    // (optional) prefab root id allows the root entity to be referenced by their children
+    id: 9000,
     // (optional) prefab data, it will be inserted as a component of the prefab root entity
     data: (),
     // (optional) prefab root transform
     transform: (),
+    // (optional) extra components, easily modify the prefab behaviour and reduces data duplication
+    components: []
     // list of instances
     scene: [
         // entity instance
@@ -40,19 +44,21 @@ Prefab (
             id: 95649,
             // prefab kind or implementation (what kind of lamp this instance is?)
             source: External("prefabs/flashlight.prefab"),
+            // (optional) define parent, when not present the parent will be the root entity
+            parent: Some(67234),
             // (optional) prefab instance do override out of the box the [`Transform`] and [`Parent`] components
             transform: (
                 position: Some((0, 2, -2)),
                 rotation: None,
                 scale: None,
             ),
-            // (optional) 
-            parent: Some(67234),
             // (optional) prefab data used to modify this instance, source prefab defaults are used when missing
             overrides: (
                 light_color: Rgba( red: 1, green: 0, blue: 0, alpha: 1),
                 light_strength: 2,
             ),
+            // (optional) override prefab components, except for `Parent` and `Transform` that have a custom override path
+            components: [],
         ),
         // fully procedural prefab
         CubePrefab (
@@ -65,25 +71,26 @@ Prefab (
 
 ## TODO
 
-- temp prefab entity, so children can reference the top level prefab entity
-- prefab components, reduces the amount of data duplication
-- missing a entity won't result in error, instead a entity tagged with `PrefabMissingEntityTag` is spawned to take their place
-- missing entity (test case)
-- unknown component (test case)
-- query about prefab loading status
-- remove entities if prefab fails to load
-- fail to load nested prefab (test case)
-- only spawn a prefab when all their prefabs dependencies where loaded
-    custom dependency tracking until we have a proper one from distill,
-    while deserializing collect all prefab dependencies
-- modify or change nested prefab inside the construct function (test case)
-- send prefab events instantiated or modified
-- hot reload
-- serialization
-- uuid support for prefab variants and component names
-- embedded assets
-- save and load the table of components uuids to be used by non human readable formats on publishing
-- editor
+- (test) top level prefab components
+- (test) prefab components overrides
+- (behaviour) missing a entity won't result in error, instead a entity tagged with `PrefabMissingEntityTag` is spawned to take their place
+- (test) missing entity
+- (test) unknown component
+- (behaviour) query about prefab loading status
+- (behaviour) remove entities if prefab fails to load
+- (test) fail to load nested prefab
+- (feature) custom dependency tracking until distill
+- (behaviour) only spawn a prefab when all their prefabs dependencies where loaded
+- (test) modify or change nested prefab inside the construct function
+- (feature) send prefab events instantiated or modified
+- (feature) hot reload
+- (feature) serialization
+- (feature) uuid support for prefab variants and component names
+- (feature) embedded assets
+- (feature) save and load the table of components uuids to be used by non human readable formats on publishing
+- (feature) editor
+- (feature) benches
+- (pref) cache copy functions by archetype
 
 ## Usage
 
