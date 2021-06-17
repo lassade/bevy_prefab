@@ -112,6 +112,7 @@ struct PrefabInstanceDeserializer<'a> {
     world: &'a mut World,
     source_to_prefab: &'a mut EntityMap,
     descriptor: PrefabDescriptor,
+    component_registry: &'a ComponentDescriptorRegistry,
 }
 
 impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
@@ -130,9 +131,10 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         enum Field {
             Id,
             Source,
-            Transform,
             Parent,
+            Transform,
             Overrides,
+            Components,
         }
 
         let mut id = None;
@@ -146,9 +148,13 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
             world,
             source_to_prefab,
             descriptor,
+            component_registry,
         } = self;
 
         let data_seed = PrefabInstanceDataOverrides { descriptor };
+
+        // spawn nested prefab instance entity
+        let mut prefab_entity = world.spawn();
 
         while let Some(key) = access.next_key()? {
             match key {
@@ -169,17 +175,17 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
                     }
                     source = Some(access.next_value()?);
                 }
-                Field::Transform => {
-                    if transform_override.is_some() {
-                        return Err(de::Error::duplicate_field("transform"));
-                    }
-                    transform_override = Some(access.next_value()?);
-                }
                 Field::Parent => {
                     if parent.is_some() {
                         return Err(de::Error::duplicate_field("parent"));
                     }
                     parent = Some(access.next_value()?);
+                }
+                Field::Transform => {
+                    if transform_override.is_some() {
+                        return Err(de::Error::duplicate_field("transform"));
+                    }
+                    transform_override = Some(access.next_value()?);
                 }
                 Field::Overrides => {
                     if overrides.is_some() {
@@ -187,6 +193,10 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
                     }
                     overrides = Some(access.next_value_seed(&data_seed)?);
                 }
+                Field::Components => access.next_value_seed(IdentifiedComponentSeq {
+                    entity_builder: &mut prefab_entity,
+                    component_registry,
+                })?,
             }
         }
 
@@ -206,13 +216,10 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         let parent = parent.unwrap_or_default();
         let transform_override: PrefabTransformOverride = transform_override.unwrap_or_default();
 
-        // spawn blank nested prefab instance
-        let mut blank = world.spawn();
-
-        let blank_entity = blank.id();
+        let blank_entity = prefab_entity.id();
         source_to_prefab.insert(id, blank_entity);
 
-        blank.insert_bundle((
+        prefab_entity.insert_bundle((
             source.clone().unwrap_or_default(),
             transform_override,
             PrefabNotInstantiatedTag { _marker: () },
@@ -220,21 +227,21 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
 
         if !data_seed.descriptor.source_prefab_required {
             // source isn't available, insert construct function definition
-            blank.insert(PrefabConstruct(data_seed.descriptor.construct));
+            prefab_entity.insert(PrefabConstruct(data_seed.descriptor.construct));
         } else {
             // validate source type
-            blank.insert(PrefabTypeUuid(data_seed.descriptor.uuid));
+            prefab_entity.insert(PrefabTypeUuid(data_seed.descriptor.uuid));
         }
 
         if let Some(overrides) = overrides {
-            blank.insert(overrides);
+            prefab_entity.insert(overrides);
         }
 
         // parent all nested prefabs (when needed)
         if let Some(source_parent) = parent {
             // NOTE here we don't convert the `source_parent` entity because
             // it will be done at in the next stage of deserialization
-            blank.insert(Parent(source_parent));
+            prefab_entity.insert(Parent(source_parent));
         }
 
         Ok(())
@@ -398,6 +405,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
                     world,
                     source_to_prefab,
                     descriptor,
+                    component_registry,
                 },
             ),
         }
