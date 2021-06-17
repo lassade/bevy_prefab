@@ -2,14 +2,9 @@ use std::fmt;
 
 use anyhow::Result;
 use bevy::{
-    ecs::{
-        entity::{Entity, EntityMap},
-        world::World,
-    },
+    ecs::{entity::EntityMap, world::World},
     prelude::{Handle, Parent},
-    utils::HashSet,
 };
-use rand::{prelude::ThreadRng, RngCore};
 use serde::{
     de::{self, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
     Deserialize, Deserializer,
@@ -17,39 +12,10 @@ use serde::{
 
 use crate::{
     data::BoxedPrefabOverrides,
-    de::component::IdentifiedComponentSeq,
+    de::{component::IdentifiedComponentSeq, IdValidation},
     registry::{ComponentDescriptorRegistry, PrefabDescriptor, PrefabDescriptorRegistry},
     Prefab, PrefabConstruct, PrefabNotInstantiatedTag, PrefabTransformOverride, PrefabTypeUuid,
 };
-
-///////////////////////////////////////////////////////////////////////////////
-
-struct IdValidation {
-    random: ThreadRng,
-    collection: HashSet<Entity>,
-}
-
-impl IdValidation {
-    pub fn empty() -> Self {
-        Self {
-            random: rand::thread_rng(),
-            collection: HashSet::default(),
-        }
-    }
-
-    pub fn validate(&mut self, id: Entity) -> bool {
-        self.collection.insert(id)
-    }
-
-    pub fn generate_unique(&mut self) -> Entity {
-        loop {
-            let id = Entity::new(self.random.next_u32());
-            if self.validate(id) {
-                return id;
-            }
-        }
-    }
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -154,7 +120,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         let data_seed = PrefabInstanceDataOverrides { descriptor };
 
         // spawn nested prefab instance entity
-        let mut prefab_entity = world.spawn();
+        let mut prefab_instance = world.spawn();
 
         while let Some(key) = access.next_key()? {
             match key {
@@ -194,7 +160,7 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
                     overrides = Some(access.next_value_seed(&data_seed)?);
                 }
                 Field::Components => access.next_value_seed(IdentifiedComponentSeq {
-                    entity_builder: &mut prefab_entity,
+                    entity_builder: &mut prefab_instance,
                     component_registry,
                 })?,
             }
@@ -216,10 +182,10 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
         let parent = parent.unwrap_or_default();
         let transform_override: PrefabTransformOverride = transform_override.unwrap_or_default();
 
-        let blank_entity = prefab_entity.id();
+        let blank_entity = prefab_instance.id();
         source_to_prefab.insert(id, blank_entity);
 
-        prefab_entity.insert_bundle((
+        prefab_instance.insert_bundle((
             source.clone().unwrap_or_default(),
             transform_override,
             PrefabNotInstantiatedTag { _marker: () },
@@ -227,21 +193,21 @@ impl<'a, 'de> Visitor<'de> for PrefabInstanceDeserializer<'a> {
 
         if !data_seed.descriptor.source_prefab_required {
             // source isn't available, insert construct function definition
-            prefab_entity.insert(PrefabConstruct(data_seed.descriptor.construct));
+            prefab_instance.insert(PrefabConstruct(data_seed.descriptor.construct));
         } else {
             // validate source type
-            prefab_entity.insert(PrefabTypeUuid(data_seed.descriptor.uuid));
+            prefab_instance.insert(PrefabTypeUuid(data_seed.descriptor.uuid));
         }
 
         if let Some(overrides) = overrides {
-            prefab_entity.insert(overrides);
+            prefab_instance.insert(overrides);
         }
 
         // parent all nested prefabs (when needed)
         if let Some(source_parent) = parent {
             // NOTE here we don't convert the `source_parent` entity because
             // it will be done at in the next stage of deserialization
-            prefab_entity.insert(Parent(source_parent));
+            prefab_instance.insert(Parent(source_parent));
         }
 
         Ok(())
@@ -415,6 +381,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstance<'a> {
 ///////////////////////////////////////////////////////////////////////////////
 
 pub(crate) struct IdentifiedInstanceSeq<'a> {
+    pub id_validation: &'a mut IdValidation,
     pub source_to_prefab: &'a mut EntityMap,
     pub world: &'a mut World,
     pub component_registry: &'a ComponentDescriptorRegistry,
@@ -445,13 +412,12 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
         A: SeqAccess<'de>,
     {
         let IdentifiedInstanceSeq {
+            id_validation,
             source_to_prefab,
             world,
             component_registry,
             prefab_registry,
         } = self;
-
-        let id_validation = &mut IdValidation::empty();
 
         while let Some(_) = seq.next_element_seed(IdentifiedInstance {
             id_validation,
@@ -471,7 +437,7 @@ impl<'a, 'de> Visitor<'de> for IdentifiedInstanceSeq<'a> {
 mod tests {
     use bevy::{
         ecs::{
-            entity::{MapEntities, MapEntitiesError},
+            entity::{Entity, MapEntities, MapEntitiesError},
             world::World,
         },
         reflect::{Reflect, TypeUuid},

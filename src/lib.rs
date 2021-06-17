@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use bevy::{
-    ecs::world::World,
+    ecs::{entity::Entity, world::World},
     math::{Quat, Vec3},
     prelude::Transform,
     reflect::{TypeUuid, Uuid},
@@ -33,6 +33,7 @@ use crate::registry::PrefabConstructFn;
 #[derive(Debug, TypeUuid)]
 #[uuid = "58bc173f-8f5e-4200-88bc-9f12ae9f87cc"]
 pub struct Prefab {
+    root_entity: Entity,
     data: BoxedPrefabData,
     transform: Transform,
     world: World,

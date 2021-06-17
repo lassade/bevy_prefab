@@ -24,6 +24,7 @@ pub(crate) type ComponentCopyFn = fn(&World, &mut World, Entity, Entity) -> ();
 pub struct ComponentDescriptor {
     pub(crate) de: ComponentDeserializerFn,
     pub(crate) copy: ComponentCopyFn,
+    pub(crate) copy_without_overriding: ComponentCopyFn,
 }
 
 pub(crate) type ComponentDescriptorRegistry = Registry<ComponentDescriptor>;
@@ -47,10 +48,8 @@ impl ComponentDescriptorRegistry {
                 serde::de::IgnoredAny::deserialize(deserializer)?;
                 Ok(())
             },
-            |from_world, to_world, from_entity, to_entity| {
-                let from = from_world.get::<T>(from_entity).unwrap();
-                to_world.entity_mut(to_entity).insert(from.clone());
-            },
+            copy::<T>,
+            copy_without_overriding::<T>,
         )
     }
 
@@ -66,10 +65,8 @@ impl ComponentDescriptorRegistry {
                 entity.insert(T::default());
                 Ok(())
             },
-            |from_world, to_world, from_entity, to_entity| {
-                let from = from_world.get::<T>(from_entity).unwrap();
-                to_world.entity_mut(to_entity).insert(from.clone());
-            },
+            copy::<T>,
+            copy_without_overriding::<T>,
         )
     }
 
@@ -84,10 +81,8 @@ impl ComponentDescriptorRegistry {
                 entity.insert(value);
                 Ok(())
             },
-            |from_world, to_world, from_entity, to_entity| {
-                let from = from_world.get::<T>(from_entity).unwrap();
-                to_world.entity_mut(to_entity).insert(from.clone());
-            },
+            copy::<T>,
+            copy_without_overriding::<T>,
         )
     }
 
@@ -113,10 +108,8 @@ impl ComponentDescriptorRegistry {
                     .into(),
                 )
             },
-            |from_world, to_world, from_entity, to_entity| {
-                let from = from_world.get::<T>(from_entity).unwrap();
-                to_world.entity_mut(to_entity).insert(from.clone());
-            },
+            copy::<T>,
+            copy_without_overriding::<T>,
         )
     }
 
@@ -126,6 +119,7 @@ impl ComponentDescriptorRegistry {
         alias: String,
         de: ComponentDeserializerFn,
         copy: ComponentCopyFn,
+        copy_without_overriding: ComponentCopyFn,
     ) -> Result<()>
     where
         T: 'static,
@@ -140,8 +134,35 @@ impl ComponentDescriptorRegistry {
         }
 
         let type_info = (TypeId::of::<T>(), uuid, type_name::<T>());
-        self.register_internal(alias, type_info, || ComponentDescriptor { de, copy })?;
+        self.register_internal(alias, type_info, || ComponentDescriptor {
+            de,
+            copy,
+            copy_without_overriding,
+        })?;
         Ok(())
+    }
+}
+
+fn copy<T: Component + Clone>(
+    from_world: &World,
+    to_world: &mut World,
+    from_entity: Entity,
+    to_entity: Entity,
+) {
+    let from = from_world.get::<T>(from_entity).unwrap();
+    to_world.entity_mut(to_entity).insert(from.clone());
+}
+
+fn copy_without_overriding<T: Component + Clone>(
+    from_world: &World,
+    to_world: &mut World,
+    from_entity: Entity,
+    to_entity: Entity,
+) {
+    let mut to = to_world.entity_mut(to_entity);
+    if to.contains::<T>() {
+        let from = from_world.get::<T>(from_entity).unwrap();
+        to.insert(from.clone());
     }
 }
 

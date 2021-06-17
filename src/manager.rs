@@ -76,30 +76,62 @@ fn prefab_spawner(
             // copy prefab entities over
             for archetype in prefab.world.archetypes().iter() {
                 for prefab_entity in archetype.entities() {
-                    let instance_entity = *prefab_to_instance
-                        .entry(*prefab_entity)
-                        .or_insert_with(|| world.spawn().id());
+                    if prefab.root_entity == *prefab_entity {
+                        // root entity
+                        prefab_to_instance.insert(*prefab_entity, root_entity);
 
-                    for component_id in archetype.components() {
-                        let component_info =
-                            prefab.world.components().get_info(component_id).unwrap();
+                        // TODO: cache copy functions by archetype, because the prefab won't change unless reloaded
+                        // or during selected editor operations the archetypes order will predictable
+                        for component_id in archetype.components() {
+                            let component_info =
+                                prefab.world.components().get_info(component_id).unwrap();
 
-                        if let Some(descriptor) =
-                            component_registry.find_by_type(component_info.type_id().unwrap())
-                        {
-                            // copy prefab from his world over the current active world
-                            (descriptor.copy)(
-                                &prefab.world,
-                                world,
-                                *prefab_entity,
-                                instance_entity,
-                            );
-                        } else {
-                            // hard error, must be fixed by user
-                            panic!(
-                                "prefab component `{}` not registered",
-                                component_info.name()
-                            );
+                            if let Some(descriptor) =
+                                component_registry.find_by_type(component_info.type_id().unwrap())
+                            {
+                                // copy prefab from his world over the current active world
+                                // but don't override any component, a bit slower but needed since the
+                                (descriptor.copy_without_overriding)(
+                                    &prefab.world,
+                                    world,
+                                    *prefab_entity,
+                                    root_entity,
+                                );
+                            } else {
+                                // hard error, must be fixed by user
+                                panic!(
+                                    "prefab component `{}` not registered",
+                                    component_info.name()
+                                );
+                            }
+                        }
+                    } else {
+                        // default entity
+                        let instance_entity = *prefab_to_instance
+                            .entry(*prefab_entity)
+                            .or_insert_with(|| world.spawn().id());
+
+                        for component_id in archetype.components() {
+                            let component_info =
+                                prefab.world.components().get_info(component_id).unwrap();
+
+                            if let Some(descriptor) =
+                                component_registry.find_by_type(component_info.type_id().unwrap())
+                            {
+                                // copy prefab from his world over the current active world
+                                (descriptor.copy)(
+                                    &prefab.world,
+                                    world,
+                                    *prefab_entity,
+                                    instance_entity,
+                                );
+                            } else {
+                                // hard error, must be fixed by user
+                                panic!(
+                                    "prefab component `{}` not registered",
+                                    component_info.name()
+                                );
+                            }
                         }
                     }
                 }

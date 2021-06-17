@@ -1,6 +1,13 @@
 use std::{fmt, sync::Arc};
 
-use bevy::ecs::{entity::EntityMap, world::World};
+use bevy::{
+    ecs::{
+        entity::{Entity, EntityMap},
+        world::World,
+    },
+    utils::HashSet,
+};
+use rand::{prelude::ThreadRng, RngCore};
 use serde::{
     de::{self, DeserializeSeed, EnumAccess, MapAccess, VariantAccess, Visitor},
     Deserialize, Deserializer,
@@ -17,6 +24,7 @@ use crate::{
 mod component;
 mod instance;
 
+use component::IdentifiedComponentSeq;
 use instance::IdentifiedInstanceSeq;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -54,6 +62,35 @@ impl<'a, 'de> Visitor<'de> for PrefabVariant<'a> {
         match registry.find_by_name(v).cloned() {
             Some(descriptor) => Ok(descriptor),
             None => Err(de::Error::unknown_variant(v, &[])),
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+pub(crate) struct IdValidation {
+    random: ThreadRng,
+    collection: HashSet<Entity>,
+}
+
+impl IdValidation {
+    pub fn empty() -> Self {
+        Self {
+            random: rand::thread_rng(),
+            collection: HashSet::default(),
+        }
+    }
+
+    pub fn validate(&mut self, id: Entity) -> bool {
+        self.collection.insert(id)
+    }
+
+    pub fn generate_unique(&mut self) -> Entity {
+        loop {
+            let id = Entity::new(self.random.next_u32());
+            if self.validate(id) {
+                return id;
+            }
         }
     }
 }
@@ -100,15 +137,19 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
         #[derive(Deserialize)]
         #[serde(field_identifier, rename_all = "lowercase")]
         enum Field {
-            Data,
+            Id,
             Transform,
+            Data,
+            Components,
             Scene,
         }
 
+        let mut id = None;
         let mut source_to_prefab = EntityMap::default();
         let mut data = None;
         let mut transform = None;
         let mut world = World::default();
+        let root_entity = world.spawn().id();
 
         let PrefabBody {
             component_entity_mapper,
@@ -117,15 +158,23 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             prefab_registry,
         } = self;
 
+        let id_validation = &mut IdValidation::empty();
+
+        // root entity is used hold component data and
         let data_seed = PrefabDataDeserializer { descriptor };
 
         while let Some(key) = access.next_key()? {
             match key {
-                Field::Data => {
-                    if data.is_some() {
-                        return Err(de::Error::duplicate_field("data"));
+                Field::Id => {
+                    if id.is_some() {
+                        return Err(de::Error::duplicate_field("id"));
                     }
-                    data = Some(access.next_value_seed(&data_seed)?);
+                    let temp = access.next_value()?;
+                    if id_validation.validate(temp) {
+                        id = Some(temp);
+                    } else {
+                        return Err(de::Error::custom(format!("conflicting id `{}`", temp.id())));
+                    }
                 }
                 Field::Transform => {
                     if transform.is_some() {
@@ -133,8 +182,19 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
                     }
                     transform = Some(access.next_value()?);
                 }
+                Field::Data => {
+                    if data.is_some() {
+                        return Err(de::Error::duplicate_field("data"));
+                    }
+                    data = Some(access.next_value_seed(&data_seed)?);
+                }
+                Field::Components => access.next_value_seed(IdentifiedComponentSeq {
+                    entity_builder: &mut world.entity_mut(root_entity),
+                    component_registry,
+                })?,
                 Field::Scene => {
                     access.next_value_seed(IdentifiedInstanceSeq {
+                        id_validation,
                         source_to_prefab: &mut source_to_prefab,
                         world: &mut world,
                         component_registry,
@@ -143,6 +203,9 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
                 }
             }
         }
+
+        let id = id.unwrap_or_else(|| id_validation.generate_unique());
+        source_to_prefab.insert(id, root_entity);
 
         // map entities from source file to prefab space
         component_entity_mapper
@@ -158,6 +221,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
             .map_err(de::Error::custom)?;
 
         Ok(Prefab {
+            root_entity,
             data,
             transform,
             world,
@@ -167,7 +231,7 @@ impl<'a, 'de> Visitor<'de> for PrefabBody<'a> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-const PREFAB_FIELDS: &'static [&'static str] = &["data", "scene"];
+const PREFAB_FIELDS: &'static [&'static str] = &["id", "transform", "data", "components", "scene"];
 
 pub(crate) struct PrefabDeserializerInner {
     pub component_entity_mapper: ComponentEntityMapperRegistry,

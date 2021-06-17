@@ -103,6 +103,7 @@ impl Plugin for PrefabPlugin {
         prefabs.set_untracked(
             Handle::<Prefab>::default(),
             Prefab {
+                root_entity: Entity::new(u32::MAX), // TODO: proper invalid entity
                 data: BoxedPrefabData(Box::new(BlankPrefab)),
                 transform: Transform::default(),
                 world: World::default(),
